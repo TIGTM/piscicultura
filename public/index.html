@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IEFISH - Dashboard de Visualização</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="dark-theme">
+    <div class="app-container">
+        <aside class="sidebar">            <div class="logo">
+                <span class="icon">🐟</span>
+                <h1>IEFISH VIEW</h1>
+            </div>
+
+            <div class="sidebar-tabs">
+                <button class="sidebar-tab active" id="tab-views" onclick="switchSidebarTab('views')">Views</button>
+                <button class="sidebar-tab" id="tab-sql" onclick="switchSidebarTab('sql')">SQL</button>
+                <button class="sidebar-tab" id="tab-fechamento" onclick="switchSidebarTab('fechamento')">Fechamento</button>
+            </div>
+
+            <nav id="view-list">
+                <!-- Dynamically populated -->
+                <div class="loading-nav">Carregando visualizações...</div>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="session-panel">
+                    <div class="session-user">
+                        <span>Usuário conectado</span>
+                        <strong id="session-username">Carregando...</strong>
+                    </div>
+                    <button id="logout-btn" class="logout-btn" type="button">Sair</button>
+                </div>
+                <div class="status-indicator">
+                    <span class="dot"></span>
+                    <span id="connection-status">Verificando...</span>
+                </div>
+            </div>
+        </aside>
+
+        <main class="content">
+            <!-- VIEWS PANEL -->
+            <div id="panel-views" style="display:flex; flex-direction:column; height:100%; width:100%">
+            <header class="top-bar">
+                <h2 id="current-view-title">Selecione uma Visualização</h2>
+                <div class="actions">
+                    <button id="refresh-btn" class="btn-primary">Atualizar Dados</button>
+                </div>
+            </header>
+
+            <section class="query-bar" id="query-bar" style="display:none">
+                <div class="query-controls">
+                    <div class="control-group">
+                        <label>Linhas</label>
+                        <input type="number" id="limit-input" value="500" min="1" max="5000" />
+                    </div>
+                    <div class="control-group">
+                        <label>Ordenar por</label>
+                        <select id="orderby-select"><option value="">-- Nenhum --</option></select>
+                    </div>
+                    <div class="control-group">
+                        <label>Direção</label>
+                        <select id="orderdir-select">
+                            <option value="ASC">ASC ▲</option>
+                            <option value="DESC">DESC ▼</option>
+                        </select>
+                    </div>
+                    <button id="add-filter-btn" class="btn-secondary">+ Filtro</button>
+                    <button id="run-query-btn" class="btn-primary">▶ Executar</button>
+                    <span class="row-count" id="row-count"></span>
+                </div>
+                <div id="filters-container"></div>
+            </section>
+
+            <section class="data-container">
+                <div id="table-wrapper" class="table-wrapper">
+                    <div class="welcome-message">
+                        <h3>Bem-vindo ao IEFISH View</h3>
+                        <p>Selecione uma das visualizações no menu lateral para começar a explorar os dados.</p>
+                    </div>
+                </div>
+            </section>
+            </div>
+
+            <!-- SQL EDITOR PANEL -->
+            <div id="panel-sql" style="display:none; flex-direction:column; height:100%;">
+                <header class="top-bar">
+                    <h2>Editor SQL</h2>
+                    <div class="actions">
+                        <span class="row-count" id="sql-row-count"></span>
+                        <button id="sql-run-btn" class="btn-primary">▶ Executar <small style="opacity:.7;font-size:10px">Ctrl+Enter</small></button>
+                        <button id="sql-clear-btn" class="btn-secondary">Limpar</button>
+                    </div>
+                </header>
+                <div class="sql-editor-area">
+                    <div class="sql-views-hint" id="sql-views-hint"></div>
+                    <textarea id="sql-input" spellcheck="false" placeholder="SELECT * FROM ies_TempDash_vwvisaogeral_CACHE LIMIT 100"></textarea>
+                </div>
+                <div class="sql-results-area">
+                    <div id="sql-table-wrapper" class="table-wrapper">
+                        <div class="welcome-message"><p>Escreva uma query SELECT e clique em Executar.</p></div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- FECHAMENTO PANEL -->
+        <div id="panel-fechamento" class="fechamento-panel" style="display:none;">
+            <header class="top-bar fechamento-toolbar">
+                <div>
+                    <h2>Fechamento de Lotes</h2>
+                    <span class="toolbar-context" id="fechamento-status">Base IEFish</span>
+                </div>
+                <div class="fechamento-actions">
+                    <div class="control-group fechamento-lote-control">
+                        <label for="fechamento-lote-select">Lote</label>
+                        <select id="fechamento-lote-select">
+                            <option value="">Carregando...</option>
+                        </select>
+                    </div>
+                    <button id="fechamento-run-btn" class="btn-primary">Gerar fechamento</button>
+                    <button id="fechamento-export-btn" class="btn-secondary">Exportar CSV</button>
+                </div>
+            </header>
+
+            <div class="fechamento-modebar">
+                <div class="segmented-control" aria-label="Modo do fechamento">
+                    <button class="segment active" id="fechamento-mode-planilha" type="button">Modelo da planilha</button>
+                    <button class="segment" id="fechamento-mode-rastreado" type="button">Rastreio e custos</button>
+                </div>
+                <div id="fechamento-diagnostico" class="diagnostic-summary" hidden></div>
+            </div>
+
+            <div class="fechamento-scroll">
+                <div id="fechamento-kpis" class="kpi-grid" hidden></div>
+
+                <section id="fechamento-fornecedores-section" class="report-section" hidden>
+                    <div class="section-heading">
+                        <h3>Resumo por fornecedor</h3>
+                    </div>
+                    <div id="fechamento-fornecedores" class="compact-table"></div>
+                </section>
+
+                <section class="report-section fechamento-detail-section">
+                    <div class="section-heading">
+                        <h3>Tanques de origem</h3>
+                        <span id="fechamento-row-count" class="section-count"></span>
+                    </div>
+                    <div id="fechamento-table-wrapper" class="table-wrapper fechamento-table-wrapper">
+                        <div class="welcome-message">
+                            <h3>Fechamento de Lotes</h3>
+                            <p>Selecione um lote para consolidar os ciclos.</p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast"></div>
+    <div id="calculation-tooltip" class="calculation-tooltip" role="tooltip" hidden></div>
+
+    <script src="app.js"></script>
+</body>
+</html>

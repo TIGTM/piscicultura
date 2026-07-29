@@ -1,0 +1,46 @@
+# Variaveis de ambiente
+.env
+.env.*
+!.env.example
+
+# Dependencias
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Credenciais, chaves e tokens
+*.key
+*.pem
+*.p12
+secrets/
+.secrets/
+credentials.json
+service-account*.json
+
+# Dados operacionais e materiais internos
+*.xlsx
+*.xls
+*.csv
+transcriçãomatheus.txt
+IEFISH NOVAS TAREFAS.txt
+.codex-spreadsheet-analysis/
+docs/codex/
+PROJETO_MASTER.md
+
+# Arquivos de contexto e memoria
+memory.md
+audit.log
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# Editores
+.vscode/
+.idea/
+
+# Backups
+*.bak
+*.zip
