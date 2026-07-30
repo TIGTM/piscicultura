@@ -936,8 +936,202 @@ tr:hover td {
     .fechamento-scroll { padding: 16px 22px 28px; }
 }
 
-@media (max-width: 680px) {
-    body { overflow: auto; }
-    .app-container { min-width: 680px; }
-    .kpi-grid { grid-template-columns: repeat(2, minmax(145px, 1fr)); }
+@media (max-width: 760px) {
+    body {
+        width: 100%;
+        height: 100dvh;
+        overflow: hidden;
+    }
+
+    .app-container {
+        width: 100%;
+        height: 100dvh;
+        min-width: 0;
+        flex-direction: column;
+    }
+
+    .sidebar {
+        width: 100%;
+        min-height: 58px;
+        height: 58px;
+        padding: 8px 12px;
+        border-right: 0;
+        border-bottom: 1px solid var(--border);
+        box-shadow: none;
+        flex-direction: row;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .logo {
+        flex: 1;
+        min-width: 0;
+        gap: 8px;
+        margin: 0;
+    }
+
+    .logo .icon { font-size: 20px; }
+    .logo h1 { font-size: 16px; }
+
+    .sidebar-tabs,
+    #view-list {
+        display: none !important;
+    }
+
+    .sidebar-footer {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 0;
+        padding: 0;
+        border: 0;
+    }
+
+    .session-panel {
+        gap: 8px;
+        margin: 0;
+    }
+
+    .session-user span { display: none; }
+    .session-user strong { font-size: 11px; }
+
+    .logout-btn {
+        height: 34px;
+        padding: 0 9px;
+    }
+
+    .status-indicator {
+        gap: 0;
+        font-size: 0;
+    }
+
+    .status-indicator .dot {
+        width: 7px;
+        height: 7px;
+    }
+
+    .fechamento-panel {
+        width: 100%;
+        height: auto;
+        min-height: 0;
+    }
+
+    .fechamento-toolbar {
+        min-height: 0;
+        gap: 10px;
+        padding: 12px;
+    }
+
+    .fechamento-toolbar h2 { font-size: 18px; }
+    .toolbar-context { font-size: 11px; }
+
+    .fechamento-actions {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: end;
+        gap: 8px;
+        width: 100%;
+    }
+
+    .fechamento-lote-control {
+        min-width: 0;
+        width: 100%;
+    }
+
+    .fechamento-lote-control select {
+        height: 42px;
+        font-size: 12px;
+    }
+
+    .fechamento-actions .btn-primary {
+        height: 42px;
+        padding: 0 14px;
+    }
+
+    .fechamento-modebar {
+        gap: 8px;
+        padding: 8px 12px;
+    }
+
+    .segmented-control {
+        width: 100%;
+        height: 38px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .segment {
+        padding: 0 6px;
+        font-size: 11px;
+    }
+
+    .diagnostic-summary {
+        width: 100%;
+        font-size: 11px;
+    }
+
+    .fechamento-scroll {
+        padding: 12px 12px 20px;
+    }
+
+    .kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        margin-bottom: 16px;
+    }
+
+    .kpi-card {
+        min-height: 82px;
+        padding: 10px;
+    }
+
+    .kpi-value { font-size: 16px; }
+    .report-section { margin-top: 18px; }
+    .section-heading { min-height: 32px; }
+
+    .compact-table,
+    .fechamento-table-wrapper {
+        max-width: 100%;
+    }
+
+    .compact-table table { min-width: 760px; }
+
+    .compact-table th,
+    .compact-table td,
+    .fechamento-table-wrapper th,
+    .fechamento-table-wrapper td {
+        padding: 9px 10px;
+    }
+
+    .fechamento-table-wrapper {
+        min-height: 200px;
+        max-height: var(--fechamento-table-max-height, 56vh);
+    }
+
+    .fechamento-table-wrapper table { min-width: 1700px; }
+
+    .calculation-tooltip {
+        width: calc(100vw - 16px);
+        max-height: calc(100dvh - 16px);
+        padding: 12px;
+    }
+
+    .calculation-tooltip-components { max-height: 150px; }
+
+    .calculation-tooltip-row {
+        grid-template-columns: minmax(88px, 0.8fr) minmax(130px, 1.2fr);
+        gap: 8px;
+    }
+}
+
+@media (max-width: 380px) {
+    .sidebar { padding-inline: 10px; }
+    .logo h1 { font-size: 15px; }
+
+    .fechamento-toolbar,
+    .fechamento-scroll {
+        padding-inline: 10px;
+    }
+
+    .fechamento-actions .btn-primary { padding-inline: 11px; }
+    .kpi-value { font-size: 15px; }
 }

@@ -39,11 +39,14 @@ async function init() {
         const session = await sessionResponse.json();
         sessionUsername.textContent = session.username;
 
+        /* Views e SQL ficam desativados nesta publicacao de fechamento.
         const res = await apiFetch('/api/views');
         if (!res.ok) throw new Error('Falha ao carregar visualizações');
         const views = await res.json();
         renderNav(views);
         populateSqlHint(views);
+        */
+        switchSidebarTab('fechamento');
         await loadLotesFechamento();
         showToast('Sistema carregado com sucesso');
     } catch (err) {
@@ -266,8 +269,8 @@ refreshBtn.onclick = () => {
 // ── Sidebar tab switching ──────────────────────────────────────────────────
 function switchSidebarTab(tab) {
     const mainContent = document.querySelector('main.content');
-    document.getElementById('tab-views').classList.toggle('active', tab === 'views');
-    document.getElementById('tab-sql').classList.toggle('active', tab === 'sql');
+    document.getElementById('tab-views')?.classList.toggle('active', tab === 'views');
+    document.getElementById('tab-sql')?.classList.toggle('active', tab === 'sql');
     document.getElementById('tab-fechamento').classList.toggle('active', tab === 'fechamento');
     document.getElementById('panel-views').style.display      = tab === 'views'      ? 'flex' : 'none';
     document.getElementById('panel-sql').style.display        = tab === 'sql'        ? 'flex' : 'none';
@@ -538,7 +541,8 @@ function fitFechamentoTableToViewport() {
         : window.innerHeight;
     const availableHeight = Math.floor(scrollBottom - tableTop - 12);
     const preferredHeight = Math.floor(window.innerHeight * 0.62);
-    const maxHeight = Math.max(240, Math.min(preferredHeight, availableHeight));
+    const minimumHeight = window.innerWidth <= 760 ? 180 : 240;
+    const maxHeight = Math.max(minimumHeight, Math.min(preferredHeight, availableHeight));
 
     fechamentoWrapper.style.setProperty('--fechamento-table-max-height', `${maxHeight}px`);
 }
@@ -555,8 +559,10 @@ async function loadLotesFechamento() {
             opt.textContent = `${item.lote} · ${fmt(item.tanques_origem, 0)} tanques · ${fmt(item.quantidade_inicial, 0)} peixes`;
             fechamentoSelect.appendChild(opt);
         });
+        updateStatus(true);
     } catch (err) {
         fechamentoSelect.innerHTML = '<option value="">Erro ao carregar</option>';
+        updateStatus(false);
         showToast(err.message, 'error');
     }
 }
@@ -1654,7 +1660,7 @@ function exportFechamentoCSV() {
 }
 
 fechamentoRunBtn.onclick = gerarFechamento;
-fechamentoExport.onclick = exportFechamentoCSV;
+if (fechamentoExport) fechamentoExport.onclick = exportFechamentoCSV;
 fechamentoModePlan.onclick = () => setFechamentoMode('planilha');
 fechamentoModeTrace.onclick = () => setFechamentoMode('rastreado');
 logoutBtn.onclick = async () => {

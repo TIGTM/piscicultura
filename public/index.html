@@ -15,9 +15,11 @@
             </div>
 
             <div class="sidebar-tabs">
-                <button class="sidebar-tab active" id="tab-views" onclick="switchSidebarTab('views')">Views</button>
+                <!-- Views e SQL desativados: esta publicação é dedicada ao fechamento de lotes.
+                <button class="sidebar-tab" id="tab-views" onclick="switchSidebarTab('views')">Views</button>
                 <button class="sidebar-tab" id="tab-sql" onclick="switchSidebarTab('sql')">SQL</button>
-                <button class="sidebar-tab" id="tab-fechamento" onclick="switchSidebarTab('fechamento')">Fechamento</button>
+                -->
+                <button class="sidebar-tab active" id="tab-fechamento" onclick="switchSidebarTab('fechamento')">Fechamento</button>
             </div>
 
             <nav id="view-list">
@@ -39,7 +41,7 @@
             </div>
         </aside>
 
-        <main class="content">
+        <main class="content" style="display:none;">
             <!-- VIEWS PANEL -->
             <div id="panel-views" style="display:flex; flex-direction:column; height:100%; width:100%">
             <header class="top-bar">
@@ -106,7 +108,7 @@
         </main>
 
         <!-- FECHAMENTO PANEL -->
-        <div id="panel-fechamento" class="fechamento-panel" style="display:none;">
+        <div id="panel-fechamento" class="fechamento-panel" style="display:flex;">
             <header class="top-bar fechamento-toolbar">
                 <div>
                     <h2>Fechamento de Lotes</h2>
@@ -120,7 +122,9 @@
                         </select>
                     </div>
                     <button id="fechamento-run-btn" class="btn-primary">Gerar fechamento</button>
+                    <!-- Exportação desativada nesta publicação.
                     <button id="fechamento-export-btn" class="btn-secondary">Exportar CSV</button>
+                    -->
                 </div>
             </header>
 
