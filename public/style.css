@@ -630,6 +630,10 @@ tr:hover td {
     background: var(--bg-dark);
 }
 
+.segmented-control.single-option {
+    grid-template-columns: minmax(180px, 1fr);
+}
+
 .segment {
     min-width: 0;
     border: 0;

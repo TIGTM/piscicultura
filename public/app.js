@@ -1631,7 +1631,7 @@ function renderFechamento() {
 function setFechamentoMode(mode) {
     fechamentoMode = mode;
     fechamentoModePlan.classList.toggle('active', mode === 'planilha');
-    fechamentoModeTrace.classList.toggle('active', mode === 'rastreado');
+    fechamentoModeTrace?.classList.toggle('active', mode === 'rastreado');
     if (fechamentoData) {
         resetCalculationTooltips();
         renderKpis();
@@ -1662,7 +1662,7 @@ function exportFechamentoCSV() {
 fechamentoRunBtn.onclick = gerarFechamento;
 if (fechamentoExport) fechamentoExport.onclick = exportFechamentoCSV;
 fechamentoModePlan.onclick = () => setFechamentoMode('planilha');
-fechamentoModeTrace.onclick = () => setFechamentoMode('rastreado');
+if (fechamentoModeTrace) fechamentoModeTrace.onclick = () => setFechamentoMode('rastreado');
 logoutBtn.onclick = async () => {
     logoutBtn.disabled = true;
     logoutBtn.textContent = 'Saindo...';
