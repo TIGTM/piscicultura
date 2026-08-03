@@ -17,8 +17,11 @@ const sessionHours = Number.isFinite(configuredSessionHours) && configuredSessio
     ? configuredSessionHours
     : 12;
 const auth = createAuth({
-    username: process.env.APP_USERNAME || 'teste',
-    password: process.env.APP_PASSWORD || 'teste',
+    users: [
+        { username: 'Pedro', password: '123456', mustChange: true },
+        { username: 'Matheus', password: '123456', mustChange: true },
+    ],
+    userStorePath: process.env.AUTH_USERS_FILE || path.resolve(process.cwd(), 'data', 'auth-users.json'),
     sessionTtlMs: sessionHours * 60 * 60 * 1000,
 });
 
@@ -35,6 +38,14 @@ app.get('/login.js', (_req, res) => res.sendFile(path.join(publicDir, 'login.js'
 app.post('/api/auth/login', auth.login);
 app.post('/api/auth/logout', auth.logout);
 app.get('/api/auth/session', auth.session);
+app.get('/change-password.css', (_req, res) => res.sendFile(path.join(publicDir, 'change-password.css')));
+app.get('/change-password.js', (_req, res) => res.sendFile(path.join(publicDir, 'change-password.js')));
+app.get('/change-password', auth.requireAuth, (req, res) => {
+    if (!req.auth.mustChange) return res.redirect('/');
+    res.set('Cache-Control', 'no-store');
+    res.sendFile(path.join(publicDir, 'change-password.html'));
+});
+app.post('/api/auth/change-password', auth.changePassword);
 
 app.use(auth.requireAuth);
 app.use(express.static(publicDir));

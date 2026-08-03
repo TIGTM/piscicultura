@@ -44,7 +44,7 @@ form.addEventListener('submit', async event => {
         });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data.error || 'Não foi possível entrar.');
-        window.location.replace(safeDestination());
+        window.location.replace(data.mustChange ? '/change-password' : safeDestination());
     } catch (error) {
         showError(error.message);
         passwordInput.focus();

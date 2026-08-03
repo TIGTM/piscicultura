@@ -15,6 +15,11 @@ dos lotes da piscicultura.
 3. Inicie com `npm start`.
 4. Acesse `http://127.0.0.1:3001`.
 
+O acesso inicial usa os usuários `Pedro` e `Matheus`, ambos com a senha
+temporária `123456`. No primeiro login, cada usuário deve criar sua própria
+senha. As senhas alteradas ficam armazenadas como hash em
+`data/auth-users.json`, que não faz parte do repositorio.
+
 ## Testes
 
 ```bash

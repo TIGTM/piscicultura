@@ -17,6 +17,8 @@ npm-debug.log*
 secrets/
 .secrets/
 credentials.json
+data/auth-users.json
+data/auth-users.json.tmp
 service-account*.json
 
 # Dados operacionais e materiais internos

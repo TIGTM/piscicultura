@@ -1,4 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 
 const SESSION_COOKIE = 'iefish_session';
 const DEFAULT_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
@@ -9,8 +11,10 @@ function credentialHash(value) {
     return createHash('sha256').update(String(value ?? '')).digest();
 }
 
-function credentialsMatch(received, expected) {
-    return timingSafeEqual(credentialHash(received), credentialHash(expected));
+function passwordHashMatches(received, storedHash) {
+    const receivedHash = credentialHash(received);
+    const expectedHash = Buffer.from(storedHash, 'hex');
+    return expectedHash.length === receivedHash.length && timingSafeEqual(receivedHash, expectedHash);
 }
 
 function parseCookies(header = '') {
@@ -34,12 +38,48 @@ function requestKey(req) {
 }
 
 export function createAuth({
-    username = 'teste',
-    password = 'teste',
+    username,
+    password,
+    users,
+    userStorePath = path.resolve(process.cwd(), 'data', 'auth-users.json'),
     sessionTtlMs = DEFAULT_SESSION_TTL_MS,
 } = {}) {
     const sessions = new Map();
     const loginAttempts = new Map();
+    const configuredUsers = users?.length
+        ? users
+        : [{ username: username || 'teste', password: password || 'teste', mustChange: false }];
+    const userStore = new Map();
+
+    try {
+        const savedUsers = JSON.parse(fs.readFileSync(userStorePath, 'utf8'));
+        for (const [savedUsername, savedUser] of Object.entries(savedUsers)) {
+            if (savedUser?.passwordHash) userStore.set(savedUsername.toLowerCase(), savedUser);
+        }
+    } catch {
+        // A new installation starts with the configured initial passwords.
+    }
+
+    for (const configuredUser of configuredUsers) {
+        const key = String(configuredUser.username).trim().toLowerCase();
+        if (!key) continue;
+        if (!userStore.has(key)) {
+            userStore.set(key, {
+                username: String(configuredUser.username).trim(),
+                passwordHash: credentialHash(configuredUser.password).toString('hex'),
+                mustChange: configuredUser.mustChange ?? true,
+            });
+        }
+    }
+
+    function persistUsers() {
+        const directory = path.dirname(userStorePath);
+        fs.mkdirSync(directory, { recursive: true });
+        const temporaryPath = `${userStorePath}.tmp`;
+        const data = Object.fromEntries(userStore);
+        fs.writeFileSync(temporaryPath, `${JSON.stringify(data, null, 2)}\n`, 'utf8');
+        fs.renameSync(temporaryPath, userStorePath);
+    }
 
     function sessionFromRequest(req) {
         const token = parseCookies(req.headers.cookie)[SESSION_COOKIE];
@@ -94,8 +134,9 @@ export function createAuth({
 
         const receivedUsername = req.body?.username;
         const receivedPassword = req.body?.password;
-        const valid = credentialsMatch(receivedUsername, username)
-            && credentialsMatch(receivedPassword, password);
+        const user = userStore.get(String(receivedUsername || '').trim().toLowerCase());
+        const valid = Boolean(user)
+            && passwordHashMatches(receivedPassword, user.passwordHash);
 
         if (!valid) {
             recordFailedLogin(req);
@@ -108,13 +149,35 @@ export function createAuth({
 
         const token = randomBytes(32).toString('base64url');
         const session = {
-            username,
+            username: user.username,
+            mustChange: user.mustChange,
             createdAt: Date.now(),
             expiresAt: Date.now() + sessionTtlMs,
         };
         sessions.set(token, session);
         res.cookie(SESSION_COOKIE, token, cookieOptions(req));
-        return res.json({ authenticated: true, username: session.username });
+        return res.json({ authenticated: true, username: session.username, mustChange: session.mustChange });
+    }
+
+    function changePassword(req, res) {
+        res.set('Cache-Control', 'no-store');
+        const current = sessionFromRequest(req);
+        if (!current) return res.status(401).json({ error: 'Sessão expirada. Entre novamente.' });
+
+        const newPassword = String(req.body?.newPassword || '');
+        if (newPassword.length < 6) {
+            return res.status(400).json({ error: 'A nova senha deve ter pelo menos 6 caracteres.' });
+        }
+
+        const key = current.session.username.toLowerCase();
+        const user = userStore.get(key);
+        if (!user) return res.status(401).json({ error: 'Usuário não encontrado.' });
+
+        user.passwordHash = credentialHash(newPassword).toString('hex');
+        user.mustChange = false;
+        persistUsers();
+        current.session.mustChange = false;
+        return res.json({ authenticated: true, username: current.session.username, mustChange: false });
     }
 
     function logout(req, res) {
@@ -137,6 +200,7 @@ export function createAuth({
         return res.json({
             authenticated: true,
             username: current.session.username,
+            mustChange: current.session.mustChange,
             expiresAt: new Date(current.session.expiresAt).toISOString(),
         });
     }
@@ -144,6 +208,12 @@ export function createAuth({
     function requireAuth(req, res, next) {
         const current = sessionFromRequest(req);
         if (current) {
+            if (current.session.mustChange && !req.path.startsWith('/change-password')) {
+                if (req.originalUrl.startsWith('/api/')) {
+                    return res.status(403).json({ error: 'PASSWORD_CHANGE_REQUIRED' });
+                }
+                return res.redirect(302, '/change-password');
+            }
             res.set('Cache-Control', 'no-store');
             req.auth = current.session;
             return next();
@@ -179,6 +249,7 @@ export function createAuth({
 
     return {
         login,
+        changePassword,
         logout,
         session,
         requireAuth,
