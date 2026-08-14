@@ -20,6 +20,7 @@ const auth = createAuth({
     users: [
         { username: 'Pedro', password: '123456', mustChange: true },
         { username: 'Matheus', password: '123456', mustChange: true },
+        { username: 'Silas', password: '123456', mustChange: true },
     ],
     userStorePath: process.env.AUTH_USERS_FILE || path.resolve(process.cwd(), 'data', 'auth-users.json'),
     sessionTtlMs: sessionHours * 60 * 60 * 1000,
