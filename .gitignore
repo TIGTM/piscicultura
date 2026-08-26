@@ -19,6 +19,8 @@ secrets/
 credentials.json
 data/auth-users.json
 data/auth-users.json.tmp
+data/iefish-api-cache.json
+data/iefish-api-cache.json.tmp
 service-account*.json
 
 # Dados operacionais e materiais internos

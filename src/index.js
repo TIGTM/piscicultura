@@ -3,7 +3,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { connectDB } from './db.js';
 import dotenv from 'dotenv';
-import { getFechamento, listLotesFechamento } from './fechamento-repository.js';
+import { IefishApi } from './iefish-api.js';
+import { getFechamentoFromApi, listLotesFechamentoFromApi } from './fechamento-api-repository.js';
+import { createFechamentoWorkbook } from './fechamento-xlsx.js';
 import { createAuth } from './auth.js';
 
 dotenv.config();
@@ -25,6 +27,7 @@ const auth = createAuth({
     userStorePath: process.env.AUTH_USERS_FILE || path.resolve(process.cwd(), 'data', 'auth-users.json'),
     sessionTtlMs: sessionHours * 60 * 60 * 1000,
 });
+const iefishApi = new IefishApi();
 
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
@@ -138,8 +141,7 @@ app.post('/api/query', async (req, res) => {
 
 app.get('/api/lotes-fechamento', async (_req, res) => {
     try {
-        const pool = await connectDB();
-        res.json(await listLotesFechamento(pool));
+        res.json(await listLotesFechamentoFromApi(iefishApi));
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -148,8 +150,7 @@ app.get('/api/lotes-fechamento', async (_req, res) => {
 // Compatibilidade com a interface anterior. Agora o identificador confiável é o lote.
 app.get('/api/grupos', async (_req, res) => {
     try {
-        const pool = await connectDB();
-        const lotes = await listLotesFechamento(pool);
+        const lotes = await listLotesFechamentoFromApi(iefishApi);
         res.json(lotes.map(item => ({
             grupo: item.lote,
             lote_nome: item.lote,
@@ -166,8 +167,7 @@ async function sendFechamento(req, res, lote) {
         return res.status(400).json({ error: 'Lote inválido.' });
     }
     try {
-        const pool = await connectDB();
-        const fechamento = await getFechamento(pool, lote, { refresh: req.query.refresh === '1' });
+        const fechamento = await getFechamentoFromApi(iefishApi, lote, { refresh: req.query.refresh === '1' });
         return res.json(fechamento);
     } catch (err) {
         const status = err.message.startsWith('Nenhum tanque') ? 404 : 500;
@@ -177,18 +177,31 @@ async function sendFechamento(req, res, lote) {
 
 app.get('/api/fechamento', (req, res) => sendFechamento(req, res, req.query.lote));
 
+app.get('/api/fechamento.xlsx', async (req, res) => {
+    const lote = req.query.lote;
+    if (!lote || typeof lote !== 'string' || lote.length > 80) {
+        return res.status(400).json({ error: 'Lote inválido.' });
+    }
+    try {
+        const fechamento = await getFechamentoFromApi(iefishApi, lote);
+        const buffer = await createFechamentoWorkbook(fechamento);
+        const filename = `fechamento_${lote.replace(/[^a-zA-Z0-9]+/g, '_')}.xlsx`;
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        return res.send(Buffer.from(buffer));
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    }
+});
+
 app.get('/api/fechamento/:identificador', async (req, res) => {
     const identificador = req.params.identificador;
     if (/^Lote\s/i.test(identificador)) return sendFechamento(req, res, identificador);
 
     try {
-        const pool = await connectDB();
-        const [rows] = await pool.query(`
-            SELECT MIN(Lote) AS lote
-            FROM ies_TempDash_vwvisaogeral_CACHE
-            WHERE \`Grupo Origem\` = ?
-        `, [identificador]);
-        return sendFechamento(req, res, rows[0]?.lote);
+        const lotes = await listLotesFechamentoFromApi(iefishApi);
+        const found = lotes.find(item => item.lote === identificador);
+        return sendFechamento(req, res, found?.lote);
     } catch (err) {
         return res.status(500).json({ error: err.message });
     }

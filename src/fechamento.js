@@ -75,7 +75,9 @@ function maxDate(values) {
 
 function isTransferType(type) {
     const normalized = normalizeText(type);
-    return normalized.includes('transferencia') || normalized === 'novo lote';
+    return normalized.includes('transferencia')
+        || normalized.includes('classificacao')
+        || normalized === 'novo lote';
 }
 
 function isSaleType(type) {
@@ -153,9 +155,15 @@ function aggregatePlan(rows) {
     );
     totals.dias_medio = average(rows.map(row => row.dias_planilha));
     totals.gpd_medio = average(rows.map(row => row.gpd_planilha));
-    // Sobrevivencia consolidada: peixes iniciais menos todas as mortes e correcoes
-    // atribuidas, inclusive depois das classificacoes.
-    totals.sobrevivencia_media = safeDivide(
+    // Sobrevivência biológica considera somente morte registrada. Ela responde
+    // quantos peixes não tiveram morte apontada no IEFish.
+    totals.sobrevivencia_biologica_media = safeDivide(
+        (totals.qtd_inicial_total - totals.mortalidade_total) * 100,
+        totals.qtd_inicial_total,
+    );
+    // Sobrevivência de fechamento também considera correção de saldo, conforme
+    // a regra aprovada para o fechamento de lotes.
+    totals.sobrevivencia_fechamento_media = safeDivide(
         (
             totals.qtd_inicial_total
             - totals.mortalidade_total
@@ -163,6 +171,8 @@ function aggregatePlan(rows) {
         ) * 100,
         totals.qtd_inicial_total,
     );
+    // Mantido para consumidores antigos da API do painel.
+    totals.sobrevivencia_media = totals.sobrevivencia_fechamento_media;
     // Quebra = mortes + correcoes de saldo, comparadas com a quantidade inicial.
     totals.quebra_pct = safeDivide(
         totals.mortalidade_total + totals.correcao_total,
@@ -531,6 +541,8 @@ export function buildFechamento({ lote, roots, cycles, edges, events }) {
                 root.initialQty - traced.deaths - traced.corrections,
             );
             const planSurvival = safeDivide(planSurvivingQty * 100, root.initialQty);
+            const biologicalSurvivingQty = Math.max(0, root.initialQty - traced.deaths);
+            const biologicalSurvival = safeDivide(biologicalSurvivingQty * 100, root.initialQty);
 
             const unresolvedQuantity = unresolvedEdges.reduce((sum, edge) => {
                 const sourceShare = compositionMemo.get(edge.sourceId)?.get(root.id) || 0;
@@ -594,6 +606,7 @@ export function buildFechamento({ lote, roots, cycles, edges, events }) {
                 correcao_pos_classificacao: postClassificationCorrection,
                 correcao_total_planilha: traced.corrections,
                 saldo_sobrevivente_estimado: planSurvivingQty,
+                saldo_sobrevivente_biologico_estimado: biologicalSurvivingQty,
                 bio_inicial: root.initialBiomass,
                 bio_final_planilha: planFinalBiomass,
                 ganho_biomassa_planilha: planBiomassGain,
@@ -608,6 +621,8 @@ export function buildFechamento({ lote, roots, cycles, edges, events }) {
                 racao_planilha: feedPlan,
                 ca_planilha: planCa,
                 gpd_planilha: planGpd,
+                sobrevivencia_biologica_planilha: biologicalSurvival,
+                sobrevivencia_fechamento_planilha: planSurvival,
                 sobrevivencia_planilha: planSurvival,
                 custo_racao_planilha: feedCostPlan,
                 custo_peixe: root.fishCost,
@@ -679,7 +694,8 @@ export function buildFechamento({ lote, roots, cycles, edges, events }) {
         },
         metodologia: {
             planilha: 'Usa a fase inicial quando há venda direta. Quando existe classificação, calcula o peso final pela média ponderada dos destinos, usando a quantidade originária enviada a cada um.',
-            sobrevivencia: 'Subtrai da quantidade inicial as mortalidades e correções atribuídas em toda a linhagem, inclusive após as classificações.',
+            sobrevivencia_biologica: 'Subtrai da quantidade inicial somente as mortes atribuídas em toda a linhagem.',
+            sobrevivencia_fechamento: 'Subtrai da quantidade inicial as mortes e correções atribuídas em toda a linhagem, inclusive após as classificações.',
             rastreada: 'Rateia cada ciclo descendente pela participação do lote na quantidade inicial do tanque de destino.',
             custo: 'Soma ração e custo indireto rateados em cada fase; o custo de aquisição do peixe é considerado apenas no tanque de origem para evitar duplicidade.',
         },

@@ -378,6 +378,7 @@ sqlInput.addEventListener('keydown', e => {
 // ── Fechamento de Lote ────────────────────────────────────────────────────
 const fechamentoSelect = document.getElementById('fechamento-lote-select');
 const fechamentoRunBtn = document.getElementById('fechamento-run-btn');
+const fechamentoRefreshBtn = document.getElementById('fechamento-refresh-btn');
 const fechamentoExport = document.getElementById('fechamento-export-btn');
 const fechamentoStatus = document.getElementById('fechamento-status');
 const fechamentoKpis = document.getElementById('fechamento-kpis');
@@ -567,7 +568,7 @@ async function loadLotesFechamento() {
     }
 }
 
-async function gerarFechamento() {
+async function gerarFechamento({ refresh = false } = {}) {
     const lote = fechamentoSelect.value;
     if (!lote) { showToast('Selecione um lote', 'error'); return; }
 
@@ -579,7 +580,8 @@ async function gerarFechamento() {
     fechamentoWrapper.innerHTML = '<div class="loader"></div>';
 
     try {
-        const params = new URLSearchParams({ lote, refresh: '1' });
+        const params = new URLSearchParams({ lote });
+        if (refresh) params.set('refresh', '1');
         const res = await apiFetch(`/api/fechamento?${params}`);
         const json = await res.json();
         if (!res.ok) throw new Error(json.error || 'Erro ao gerar fechamento');
@@ -614,7 +616,8 @@ const PLAN_COLS = [
     { key: 'pm_entrada_g', label: 'PM entrada (g)' },
     { key: 'pm_saida_planilha_g', label: 'PM final pond. (g)', type: 'weighted-pm' },
     { key: 'gpd_planilha', label: 'GPD (g/dia)' },
-    { key: 'sobrevivencia_planilha', label: 'Sobrevivência (%)' },
+    { key: 'sobrevivencia_biologica_planilha', label: 'Sobrev. biológica (%)' },
+    { key: 'sobrevivencia_fechamento_planilha', label: 'Sobrev. fechamento (%)' },
     { key: 'mortalidade_total_planilha', label: 'Mortalidade total', type: 'loss-total' },
     { key: 'correcao_total_planilha', label: 'Correção total', type: 'loss-total' },
 ];
@@ -945,16 +948,28 @@ function planCellExplanation(row, column) {
             components: pmComponents(row),
             note: weightedPmNote(row),
         },
-        sobrevivencia_planilha: {
-            title: `Sobrevivência de ${row.tanque}`,
+        sobrevivencia_biologica_planilha: {
+            title: `Sobrevivência biológica de ${row.tanque}`,
+            source: 'Mortes proporcionais de toda a linhagem',
+            formula: 'Sobrevivência biológica = (inicial − mortalidade total) ÷ inicial × 100.',
+            values: [
+                ['Quantidade inicial', fmt(row.qtd_inicial, 0)],
+                ['Mortalidade total', fmt(row.mortalidade_total_planilha, 0)],
+                ['Sobreviventes estimados', fmt(row.saldo_sobrevivente_biologico_estimado, 0)],
+                ['Resultado', `${fmt(row.sobrevivencia_biologica_planilha)}%`],
+            ],
+            note: 'Não considera correção de saldo. Serve para analisar somente as mortes registradas no IEFish.',
+        },
+        sobrevivencia_fechamento_planilha: {
+            title: `Sobrevivência de fechamento de ${row.tanque}`,
             source: 'Mortalidades e correções proporcionais de toda a linhagem',
-            formula: 'Sobrevivência = (inicial − mortalidade total − correção total) ÷ inicial × 100.',
+            formula: 'Sobrevivência de fechamento = (inicial − mortalidade total − correção total) ÷ inicial × 100.',
             values: [
                 ['Quantidade inicial', fmt(row.qtd_inicial, 0)],
                 ['Mortalidade total', fmt(row.mortalidade_total_planilha, 0)],
                 ['Correção total', fmt(row.correcao_total_planilha, 0)],
                 ['Sobreviventes estimados', fmt(row.saldo_sobrevivente_estimado, 0)],
-                ['Resultado', `${fmt(row.sobrevivencia_planilha)}%`],
+                ['Resultado', `${fmt(row.sobrevivencia_fechamento_planilha)}%`],
             ],
             note: 'As mortes e correções depois da classificação são rateadas pela participação da origem em cada tanque, usando a mesma proporção aplicada à ração.',
         },
@@ -1213,7 +1228,7 @@ function lotWeightedPmComponents(rows) {
 }
 
 function planKpiExplanation(key, totals, rows) {
-    const source = `Consolidação de ${fmt(rows.length, 0)} tanques de origem de ${fechamentoData.lote}`;
+    const source = `API IEFish · Rastreabilidade 2.0 · consolidação de ${fmt(rows.length, 0)} tanques de origem de ${fechamentoData.lote}`;
     const weightedTankCount = rows.filter(usesWeightedFinalPm).length;
     const map = {
         tanques: {
@@ -1311,17 +1326,29 @@ function planKpiExplanation(key, totals, rows) {
             components: tankTotalComponents(rows, 'gpd_planilha', ' g/dia'),
             note: 'O PM final usado dentro de cada GPD é ponderado pelas quantidades dos destinos. Depois disso, este KPI faz a média simples dos GPDs válidos dos tanques.',
         },
-        sobrevivencia: {
-            title: 'Sobrevivência consolidada do lote',
+        sobrevivencia_biologica: {
+            title: 'Sobrevivência biológica do lote',
             source,
-            formula: 'Sobrevivência = (inicial − mortalidade − correção) ÷ inicial × 100.',
+            formula: 'Sobrevivência biológica = (inicial − mortalidade) ÷ inicial × 100.',
+            values: [
+                ['Quantidade inicial', fmt(totals.qtd_inicial_total, 0)],
+                ['Mortalidade total', fmt(totals.mortalidade_total, 0)],
+                ['Resultado', `${fmt(totals.sobrevivencia_biologica_media)}%`],
+            ],
+            components: tankTotalComponents(rows, 'sobrevivencia_biologica_planilha', '%'),
+            note: 'Não desconta correções de saldo.',
+        },
+        sobrevivencia_fechamento: {
+            title: 'Sobrevivência de fechamento do lote',
+            source,
+            formula: 'Sobrevivência de fechamento = (inicial − mortalidade − correção) ÷ inicial × 100.',
             values: [
                 ['Quantidade inicial', fmt(totals.qtd_inicial_total, 0)],
                 ['Mortalidade total', fmt(totals.mortalidade_total, 0)],
                 ['Correção total', fmt(totals.correcao_total, 0)],
-                ['Resultado', `${fmt(totals.sobrevivencia_media)}%`],
+                ['Resultado', `${fmt(totals.sobrevivencia_fechamento_media)}%`],
             ],
-            components: tankTotalComponents(rows, 'sobrevivencia_planilha', '%'),
+            components: tankTotalComponents(rows, 'sobrevivencia_fechamento_planilha', '%'),
         },
         dias: {
             title: 'Dias médios do lote',
@@ -1342,7 +1369,7 @@ function planKpiExplanation(key, totals, rows) {
 }
 
 function traceKpiExplanation(key, totals, rows) {
-    const source = `Consolidação rastreada de ${fechamentoData.lote}`;
+    const source = `API IEFish · Rastreabilidade 2.0 · consolidação rastreada de ${fechamentoData.lote}`;
     const map = {
         ciclos: {
             title: 'Ciclos rastreados',
@@ -1468,7 +1495,8 @@ function renderKpis() {
             kpi('C.A. do lote', fmt(t.ca_real), '', t.ca_real > 2 ? 'tone-warning' : 'tone-success', planKpiExplanation('ca', t, rows)),
             kpi('Peso médio final', `${fmt(t.pm_saida_medio_g)} g`, '', '', planKpiExplanation('pm_final', t, rows)),
             kpi('GPD médio', `${fmt(t.gpd_medio)} g/dia`, '', '', planKpiExplanation('gpd', t, rows)),
-            kpi('Sobrevivência média', `${fmt(t.sobrevivencia_media)}%`, '', 'tone-success', planKpiExplanation('sobrevivencia', t, rows)),
+            kpi('Sobrevivência biológica', `${fmt(t.sobrevivencia_biologica_media)}%`, '', 'tone-success', planKpiExplanation('sobrevivencia_biologica', t, rows)),
+            kpi('Sobrevivência de fechamento', `${fmt(t.sobrevivencia_fechamento_media)}%`, '', 'tone-success', planKpiExplanation('sobrevivencia_fechamento', t, rows)),
             kpi('Dias médios', fmt(t.dias_medio, 0), '', '', planKpiExplanation('dias', t, rows)),
             kpi('Correção de saldo', fmt(t.correcao_total, 0), '', 'tone-warning', planKpiExplanation('correcao', t, rows)),
         ]
@@ -1501,6 +1529,7 @@ function renderDiagnostics() {
         <span class="diagnostic-dot"></span>
         <strong>${fmt(pct, 0)}% das transferências resolvidas</strong>
         <span>${fmt(d.transferencias_resolvidas, 0)} de ${fmt(d.transferencias, 0)}</span>
+        ${d.fonte ? `<span>${escapeHtml(d.fonte)}</span>` : ''}
         ${d.transferencias_sem_destino ? `<span>${fmt(d.transferencias_sem_destino, 0)} sem destino</span>` : ''}
         ${d.pm_ponderado_cobertura_baixa ? `<span>${fmt(d.pm_ponderado_cobertura_baixa, 0)} PMs com base parcial</span>` : ''}
     `;
@@ -1523,7 +1552,8 @@ function supplierCellExplanation(row, key, supplierRows) {
         ca: 'ca',
         pm_final: 'pm_final',
         gpd: 'gpd',
-        sobrevivencia: 'sobrevivencia',
+        sobrevivencia_biologica: 'sobrevivencia_biologica',
+        sobrevivencia_fechamento: 'sobrevivencia_fechamento',
         quebra: 'quebra',
     };
     const labels = {
@@ -1532,7 +1562,8 @@ function supplierCellExplanation(row, key, supplierRows) {
         ca: 'C.A.',
         pm_final: 'Peso médio final',
         gpd: 'GPD médio',
-        sobrevivencia: 'Sobrevivência',
+        sobrevivencia_biologica: 'Sobrevivência biológica',
+        sobrevivencia_fechamento: 'Sobrevivência de fechamento',
         quebra: 'Quebra',
     };
     const explanation = planKpiExplanation(kpiKeyByColumn[key], row, supplierRows);
@@ -1546,7 +1577,7 @@ function supplierCellExplanation(row, key, supplierRows) {
 function renderSuppliers() {
     const rows = fechamentoData.fornecedores || [];
     if (!rows.length) { fechamentoSuppliersSection.hidden = true; return; }
-    let html = '<table><thead><tr><th>Fornecedor</th><th>Tanques</th><th>Povoado</th><th>C.A.</th><th>PM final</th><th>GPD</th><th>Sobrevivência</th><th>Quebra</th></tr></thead><tbody>';
+    let html = '<table><thead><tr><th>Fornecedor</th><th>Tanques</th><th>Povoado</th><th>C.A.</th><th>PM final</th><th>GPD</th><th>Sobrev. biológica</th><th>Sobrev. fechamento</th><th>Quebra</th></tr></thead><tbody>';
     rows.forEach(row => {
         const supplierRows = (fechamentoData.porTanque || [])
             .filter(item => item.fornecedor === row.fornecedor);
@@ -1560,7 +1591,8 @@ function renderSuppliers() {
             ${cell('ca', fmt(row.ca_real))}
             ${cell('pm_final', `${fmt(row.pm_saida_medio_g)} g`)}
             ${cell('gpd', `${fmt(row.gpd_medio)} g/dia`)}
-            ${cell('sobrevivencia', `${fmt(row.sobrevivencia_media)}%`)}
+            ${cell('sobrevivencia_biologica', `${fmt(row.sobrevivencia_biologica_media)}%`)}
+            ${cell('sobrevivencia_fechamento', `${fmt(row.sobrevivencia_fechamento_media)}%`)}
             ${cell('quebra', `${fmt(row.quebra_pct)}%`)}
         </tr>`;
     });
@@ -1639,28 +1671,35 @@ function setFechamentoMode(mode) {
     }
 }
 
-function csvCell(value) {
-    const text = Array.isArray(value) ? value.join(', ') : String(value ?? '');
-    return /[;"\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-}
-
-function exportFechamentoCSV() {
+async function exportFechamentoPlanilha() {
     if (!fechamentoData) { showToast('Gere o fechamento primeiro', 'error'); return; }
-    const columns = fechamentoMode === 'planilha' ? PLAN_COLS : TRACE_COLS;
-    const headers = columns.map(column => csvCell(column.label)).join(';');
-    const lines = fechamentoData.porTanque.map(row => columns.map(column => csvCell(row[column.key])).join(';'));
-    const csv = '\uFEFF' + [headers, ...lines].join('\r\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const anchor = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    anchor.href = url;
-    anchor.download = `fechamento_${fechamentoData.lote.replace(/\s+/g, '_')}_${fechamentoMode}.csv`;
-    anchor.click();
-    URL.revokeObjectURL(url);
+    fechamentoExport.disabled = true;
+    const previousLabel = fechamentoExport.textContent;
+    fechamentoExport.textContent = 'Preparando...';
+    try {
+        const response = await apiFetch(`/api/fechamento.xlsx?lote=${encodeURIComponent(fechamentoData.lote)}`);
+        if (!response.ok) {
+            const json = await response.json().catch(() => ({}));
+            throw new Error(json.error || 'Não foi possível gerar a planilha.');
+        }
+        const blob = await response.blob();
+        const anchor = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        anchor.href = url;
+        anchor.download = `fechamento_${fechamentoData.lote.replace(/\s+/g, '_')}.xlsx`;
+        anchor.click();
+        URL.revokeObjectURL(url);
+    } catch (err) {
+        showToast(err.message, 'error');
+    } finally {
+        fechamentoExport.disabled = false;
+        fechamentoExport.textContent = previousLabel;
+    }
 }
 
 fechamentoRunBtn.onclick = gerarFechamento;
-if (fechamentoExport) fechamentoExport.onclick = exportFechamentoCSV;
+if (fechamentoRefreshBtn) fechamentoRefreshBtn.onclick = () => gerarFechamento({ refresh: true });
+if (fechamentoExport) fechamentoExport.onclick = exportFechamentoPlanilha;
 fechamentoModePlan.onclick = () => setFechamentoMode('planilha');
 if (fechamentoModeTrace) fechamentoModeTrace.onclick = () => setFechamentoMode('rastreado');
 logoutBtn.onclick = async () => {

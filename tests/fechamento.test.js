@@ -74,7 +74,11 @@ test('interpola a fase classificada pela participação no tanque de destino', (
     assert.equal(row.mortalidade_pos_classificacao, 50);
     assert.equal(row.mortalidade_total_planilha, 150);
     assert.equal(row.correcao_total_planilha, 50);
+    assert.equal(row.sobrevivencia_biologica_planilha, 85);
+    assert.equal(row.sobrevivencia_fechamento_planilha, 80);
     assert.equal(row.sobrevivencia_planilha, 80);
+    assert.equal(result.totais_planilha.sobrevivencia_biologica_media, 85);
+    assert.equal(result.totais_planilha.sobrevivencia_fechamento_media, 80);
     assert.equal(result.totais_planilha.sobrevivencia_media, 80);
     assert.equal(row.componentes_racao_planilha.length, 2);
     assert.equal(row.componentes_rastreio.length, 2);
