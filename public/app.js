@@ -1270,6 +1270,18 @@ function planKpiExplanation(key, totals, rows) {
             values: [['Resultado', `${fmt(totals.qtd_inicial_total, 0)} peixes`]],
             components: tankTotalComponents(rows, 'qtd_inicial', ' peixes', 0),
         },
+        mortalidade: {
+            title: 'Mortalidade total do lote',
+            source,
+            formula: 'Mortalidade total = Σ mortes atribuídas a cada origem em toda a sua linhagem.',
+            values: [
+                ['Mortes na fase inicial', fmt(totals.mortalidade_total - totals.mortalidade_pos_classificacao_total, 0)],
+                ['Mortes pós-classificação', fmt(totals.mortalidade_pos_classificacao_total, 0)],
+                ['Resultado', `${fmt(totals.mortalidade_total, 0)} peixes`],
+            ],
+            components: tankTotalComponents(rows, 'mortalidade_total_planilha', ' peixes', 0),
+            note: 'Inclui mortes registradas depois da classificação, rateadas pela participação de cada origem nos tanques de destino.',
+        },
         saldo_final: {
             title: 'Saldo final das fases iniciais',
             source,
@@ -1291,6 +1303,19 @@ function planKpiExplanation(key, totals, rows) {
                 ['Encerrados comercialmente', fmt(totals.tanques_encerrados_comercialmente, 0)],
             ],
             note: 'A análise percorre todas as transferências e destinos da linhagem; não usa somente a data de encerramento da fase inicial.',
+        },
+        peixes_em_producao: {
+            title: 'Peixes ainda em produção',
+            source,
+            formula: 'Peixes em produção = quantidade inicial − saídas terminais rastreadas. Transferências e classificações não encerram o peixe, pois ele segue na linhagem.',
+            values: [
+                ['Quantidade inicial', fmt(totals.qtd_inicial_total, 0)],
+                ['Saídas terminais rastreadas', fmt(totals.qtd_inicial_total - totals.qtd_em_aberto_estimada, 0)],
+                ['Resultado', `${fmt(totals.qtd_em_aberto_estimada, 0)} peixes`],
+                ['Tanques em produção', fmt(totals.tanques_em_producao, 0)],
+            ],
+            components: tankTotalComponents(rows, 'qtd_em_aberto_estimada', ' peixes', 0),
+            note: 'Este número representa os peixes sem saída terminal rastreada. Ele não é o saldo das fases iniciais.',
         },
         quebra: {
             title: 'Quebra total do lote',
@@ -1526,11 +1551,14 @@ function renderKpis() {
     const rows = fechamentoData.porTanque || [];
     const cards = fechamentoMode === 'planilha'
         ? [
-            kpi('Situação do lote', t.situacao_fechamento, `${fmt(t.qtd_em_aberto_estimada, 0)} peixes em aberto`, t.situacao_fechamento === 'Encerrado comercialmente' ? 'tone-success' : 'tone-warning', planKpiExplanation('situacao_fechamento', t, rows)),
-            kpi('Tanques de origem', fmt(t.tanques, 0), '', '', planKpiExplanation('tanques', t, rows)),
             kpi('Quantidade inicial', fmt(t.qtd_inicial_total, 0), '', '', planKpiExplanation('qtd_inicial', t, rows)),
-            kpi('Saldo final', fmt(t.saldo_final_total, 0), '', '', planKpiExplanation('saldo_final', t, rows)),
+            kpi('Mortalidade total', fmt(t.mortalidade_total, 0), 'peixes', 'tone-warning', planKpiExplanation('mortalidade', t, rows)),
+            kpi('Correção de saldo', fmt(t.correcao_total, 0), 'peixes', 'tone-warning', planKpiExplanation('correcao', t, rows)),
             kpi('Quebra', `${fmt(t.quebra_pct)}%`, `${fmt(t.mortalidade_total + t.correcao_total, 0)} peixes`, 'tone-warning', planKpiExplanation('quebra', t, rows)),
+            kpi('Peixes em produção', fmt(t.qtd_em_aberto_estimada, 0), `${fmt(t.tanques_em_producao, 0)} tanques em produção`, 'tone-warning', planKpiExplanation('peixes_em_producao', t, rows)),
+            kpi('Situação do lote', t.situacao_fechamento, '', t.situacao_fechamento === 'Encerrado comercialmente' ? 'tone-success' : 'tone-warning', planKpiExplanation('situacao_fechamento', t, rows)),
+            kpi('Tanques de origem', fmt(t.tanques, 0), '', '', planKpiExplanation('tanques', t, rows)),
+            kpi('Dias médios', fmt(t.dias_medio, 0), '', '', planKpiExplanation('dias', t, rows)),
             kpi('Biomassa final', `${fmt(t.bio_final_total)} kg`, '', '', planKpiExplanation('bio_final', t, rows)),
             kpi('Ração total', `${fmt(t.racao_total)} kg`, '', '', planKpiExplanation('racao', t, rows)),
             kpi('C.A. do lote', fmt(t.ca_real), '', t.ca_real > 2 ? 'tone-warning' : 'tone-success', planKpiExplanation('ca', t, rows)),
@@ -1538,8 +1566,6 @@ function renderKpis() {
             kpi('GPD médio', `${fmt(t.gpd_medio)} g/dia`, '', '', planKpiExplanation('gpd', t, rows)),
             kpi('Sobrevivência biológica', `${fmt(t.sobrevivencia_biologica_media)}%`, '', 'tone-success', planKpiExplanation('sobrevivencia_biologica', t, rows)),
             kpi('Sobrevivência de fechamento', `${fmt(t.sobrevivencia_fechamento_media)}%`, '', 'tone-success', planKpiExplanation('sobrevivencia_fechamento', t, rows)),
-            kpi('Dias médios', fmt(t.dias_medio, 0), '', '', planKpiExplanation('dias', t, rows)),
-            kpi('Correção de saldo', fmt(t.correcao_total, 0), '', 'tone-warning', planKpiExplanation('correcao', t, rows)),
         ]
         : [
             kpi('Ciclos rastreados', fmt(t.ciclos_rastreados, 0), '', '', traceKpiExplanation('ciclos', t, rows)),

@@ -27,12 +27,14 @@ const TABLE_COLUMNS = [
 ];
 
 const KPI_DEFINITIONS = [
-    ['Situação do lote', totals => totals.situacao_fechamento, 'text'],
-    ['Peixes em aberto', totals => totals.qtd_em_aberto_estimada, 'integer'],
-    ['Tanques de origem', totals => totals.tanques, 'integer'],
     ['Quantidade inicial', totals => totals.qtd_inicial_total, 'integer'],
-    ['Saldo fase inicial', totals => totals.saldo_final_total, 'integer'],
+    ['Mortalidade total', totals => totals.mortalidade_total, 'integer'],
+    ['Correção de saldo', totals => totals.correcao_total, 'integer'],
     ['Quebra', totals => totals.quebra_pct, 'percent'],
+    ['Peixes em produção', totals => totals.qtd_em_aberto_estimada, 'integer'],
+    ['Situação do lote', totals => totals.situacao_fechamento, 'text'],
+    ['Tanques de origem', totals => totals.tanques, 'integer'],
+    ['Dias médios', totals => totals.dias_medio, 'integer'],
     ['Biomassa final (kg)', totals => totals.bio_final_total, 'decimal'],
     ['Ração total (kg)', totals => totals.racao_total, 'decimal'],
     ['C.A. do lote', totals => totals.ca_real, 'decimal'],
@@ -40,8 +42,6 @@ const KPI_DEFINITIONS = [
     ['GPD médio (g/dia)', totals => totals.gpd_medio, 'decimal'],
     ['Sobrevivência biológica', totals => totals.sobrevivencia_biologica_media, 'percent'],
     ['Sobrevivência de fechamento', totals => totals.sobrevivencia_fechamento_media, 'percent'],
-    ['Dias médios', totals => totals.dias_medio, 'integer'],
-    ['Correção de saldo', totals => totals.correcao_total, 'integer'],
 ];
 
 function numberFormat(type) {
