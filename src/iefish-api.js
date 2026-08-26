@@ -1,5 +1,5 @@
 const DEFAULT_BASE_URL = 'https://auth.iefishapp.com.br';
-const REQUEST_INTERVAL_MS = 1_000;
+const REQUEST_INTERVAL_MS = 700;
 const MAX_RATE_LIMIT_RETRIES = 5;
 
 function sleep(ms) {

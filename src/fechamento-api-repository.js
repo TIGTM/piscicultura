@@ -4,13 +4,15 @@ import { asNumber, buildFechamento, parseDate } from './fechamento.js';
 
 const ORIGINS_CACHE_TTL_MS = 60 * 60 * 1000;
 const FECHAMENTO_CACHE_TTL_MS = 15 * 60 * 1000;
+const OUTPUT_TYPES_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const CACHE_VERSION = 2;
 const CACHE_FILE = process.env.IEFISH_CACHE_FILE
     || path.resolve(process.cwd(), 'data', 'iefish-api-cache.json');
 const cache = new Map();
+const pendingFechamentos = new Map();
 let originCache = null;
-let persistentCache = { version: CACHE_VERSION, origins: null, fechamentos: {} };
+let persistentCache = { version: CACHE_VERSION, origins: null, outputTypes: null, fechamentos: {} };
 let persistentCacheLoaded = false;
 let cacheWrite = Promise.resolve();
 
@@ -29,6 +31,7 @@ async function loadPersistentCache() {
             persistentCache = {
                 version: CACHE_VERSION,
                 origins: parsed.origins || null,
+                outputTypes: parsed.outputTypes || null,
                 fechamentos: parsed.fechamentos || {},
             };
         }
@@ -136,6 +139,21 @@ async function getOrigins(api, { refresh = false } = {}) {
     return rows;
 }
 
+async function getOutputTypes(api) {
+    await loadPersistentCache();
+    if (isCacheFresh(persistentCache.outputTypes, OUTPUT_TYPES_CACHE_TTL_MS)) {
+        return new Map(persistentCache.outputTypes.rows);
+    }
+
+    const outputTypes = await api.outputTypes();
+    persistentCache.outputTypes = {
+        createdAt: Date.now(),
+        rows: [...outputTypes.entries()],
+    };
+    await persistCache();
+    return outputTypes;
+}
+
 export function buildApiFechamento({ lote, origins, cards, details, outputs, outputTypes }) {
     const roots = origins.map(origin => ({ id: Number(origin.idlote) }));
     const originById = new Map(origins.map(origin => [Number(origin.idlote), origin]));
@@ -222,6 +240,21 @@ export async function getFechamentoFromApi(api, lote, { refresh = false } = {}) 
         return persisted.value;
     }
 
+    // Um clique repetido, a exportação ou outra aba não devem disparar a mesma
+    // árvore de rastreabilidade enquanto o fechamento do lote já está sendo buscado.
+    if (pendingFechamentos.has(lote)) return pendingFechamentos.get(lote);
+
+    const pending = buildAndCacheFechamento(api, lote, { refresh });
+    pendingFechamentos.set(lote, pending);
+    try {
+        return await pending;
+    } finally {
+        pendingFechamentos.delete(lote);
+    }
+}
+
+async function buildAndCacheFechamento(api, lote, { refresh }) {
+
     const allOrigins = await getOrigins(api, { refresh });
     const origins = allOrigins.filter(origin => origin.nomeLote === lote);
     if (!origins.length) throw new Error(`Nenhum tanque de origem encontrado para ${lote}.`);
@@ -236,7 +269,7 @@ export async function getFechamentoFromApi(api, lote, { refresh = false } = {}) 
 
     const [details, outputTypes] = await Promise.all([
         api.cardDetails(phaseIds, rootIds),
-        api.outputTypes(),
+        getOutputTypes(api),
     ]);
     const outputs = await api.lotOutputs(phaseIds, minDate(origins.map(origin => origin.data_entrada)));
     const value = buildApiFechamento({ lote, origins, cards, details, outputs, outputTypes });
