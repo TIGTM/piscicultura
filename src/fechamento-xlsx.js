@@ -5,6 +5,7 @@ const TABLE_COLUMNS = [
     { key: 'fornecedor', label: 'Fornecedor', width: 32 },
     { key: 'metodo_planilha', label: 'Método', width: 28 },
     { key: 'situacao_fechamento', label: 'Situação', width: 31 },
+    { key: 'qtd_em_aberto_estimada', label: 'Peixes em aberto', width: 18, type: 'integer' },
     { key: 'data_entrada', label: 'Entrada', width: 14, type: 'date' },
     { key: 'data_encerramento_planilha', label: 'Encerramento', width: 16, type: 'date' },
     { key: 'dias_planilha', label: 'Dias', width: 10, type: 'integer' },

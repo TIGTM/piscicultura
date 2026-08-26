@@ -603,6 +603,7 @@ const PLAN_COLS = [
     { key: 'fornecedor', label: 'Fornecedor', type: 'text' },
     { key: 'metodo_planilha', label: 'Método', type: 'method' },
     { key: 'situacao_fechamento', label: 'Situação', type: 'text' },
+    { key: 'qtd_em_aberto_estimada', label: 'Peixes em aberto', decimals: 0 },
     { key: 'data_entrada', label: 'Entrada', type: 'date' },
     { key: 'data_encerramento_planilha', label: 'Encerramento', type: 'date' },
     { key: 'dias_planilha', label: 'Dias', decimals: 0 },
@@ -839,6 +840,17 @@ function planCellExplanation(row, column) {
                 ['Despesca/venda rastreada', fmt(row.qtd_vendida_rastreada, 0)],
             ],
             note: 'A data de encerramento da fase inicial não confirma sozinha o encerramento do lote inteiro.',
+        },
+        qtd_em_aberto_estimada: {
+            title: `Peixes em aberto de ${row.tanque}`,
+            source: 'API IEFish · Rastreabilidade 2.0',
+            formula: 'Peixes em aberto = quantidade inicial − saídas terminais atribuídas à linhagem. Transferências e classificações não são consideradas saída terminal, pois o peixe continua no processo.',
+            values: [
+                ['Quantidade inicial', fmt(row.qtd_inicial, 0)],
+                ['Saídas terminais rastreadas', fmt(row.saidas_terminais_rastreadas, 0)],
+                ['Resultado', fmt(row.qtd_em_aberto_estimada, 0)],
+            ],
+            note: 'Inclui peixes que seguem vivos em tanques descendentes e ainda não tiveram venda, morte ou correção final registrada.',
         },
         diferenca: {
             title: `Diferença de quantidade em ${row.tanque}`,
