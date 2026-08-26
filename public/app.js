@@ -602,6 +602,7 @@ const PLAN_COLS = [
     { key: 'tanque', label: 'Tanque', type: 'text' },
     { key: 'fornecedor', label: 'Fornecedor', type: 'text' },
     { key: 'metodo_planilha', label: 'Método', type: 'method' },
+    { key: 'situacao_fechamento', label: 'Situação', type: 'text' },
     { key: 'data_entrada', label: 'Entrada', type: 'date' },
     { key: 'data_encerramento_planilha', label: 'Encerramento', type: 'date' },
     { key: 'dias_planilha', label: 'Dias', decimals: 0 },
@@ -825,6 +826,19 @@ function planCellExplanation(row, column) {
             formula: 'Saldo final = peixes que restaram no ciclo de origem antes da venda ou classificação.',
             values: [['Resultado', `${fmt(row.saldo_final, 0)} peixes`]],
             note: 'Quando existe classificação, este saldo não é a sobrevivência até a despesca; as perdas posteriores aparecem na sobrevivência.',
+        },
+        situacao_fechamento: {
+            title: `Situação de ${row.tanque}`,
+            source: 'API IEFish · Rastreabilidade 2.0',
+            formula: 'Encerrado comercialmente somente quando a linhagem não tem peixe em aberto, não possui transferência sem destino e possui despesca/venda rastreada.',
+            values: [
+                ['Situação', row.situacao_fechamento],
+                ['Peixes estimados em aberto', fmt(row.qtd_em_aberto_estimada, 0)],
+                ['Ciclo ainda aberto', row.tem_ciclo_aberto ? 'Sim' : 'Não'],
+                ['Transferência sem destino', fmt(row.qtd_transferencia_sem_destino, 0)],
+                ['Despesca/venda rastreada', fmt(row.qtd_vendida_rastreada, 0)],
+            ],
+            note: 'A data de encerramento da fase inicial não confirma sozinha o encerramento do lote inteiro.',
         },
         diferenca: {
             title: `Diferença de quantidade em ${row.tanque}`,
@@ -1252,6 +1266,20 @@ function planKpiExplanation(key, totals, rows) {
             components: tankTotalComponents(rows, 'saldo_final', ' peixes', 0),
             note: 'É o saldo das fases de origem; a sobrevivência também considera perdas pós-classificação.',
         },
+        situacao_fechamento: {
+            title: 'Situação de fechamento do lote',
+            source,
+            formula: 'Encerrado comercialmente somente quando não há peixe em aberto, não há transferência sem destino e há despesca/venda rastreada na linhagem.',
+            values: [
+                ['Situação', totals.situacao_fechamento],
+                ['Peixes estimados em aberto', fmt(totals.qtd_em_aberto_estimada, 0)],
+                ['Tanques em produção', fmt(totals.tanques_em_producao, 0)],
+                ['Aguardando destino', fmt(totals.tanques_aguardando_destino, 0)],
+                ['Encerrados sem despesca rastreada', fmt(totals.tanques_sem_despesca_rastreada, 0)],
+                ['Encerrados comercialmente', fmt(totals.tanques_encerrados_comercialmente, 0)],
+            ],
+            note: 'A análise percorre todas as transferências e destinos da linhagem; não usa somente a data de encerramento da fase inicial.',
+        },
         quebra: {
             title: 'Quebra total do lote',
             source,
@@ -1486,6 +1514,7 @@ function renderKpis() {
     const rows = fechamentoData.porTanque || [];
     const cards = fechamentoMode === 'planilha'
         ? [
+            kpi('Situação do lote', t.situacao_fechamento, `${fmt(t.qtd_em_aberto_estimada, 0)} peixes em aberto`, t.situacao_fechamento === 'Encerrado comercialmente' ? 'tone-success' : 'tone-warning', planKpiExplanation('situacao_fechamento', t, rows)),
             kpi('Tanques de origem', fmt(t.tanques, 0), '', '', planKpiExplanation('tanques', t, rows)),
             kpi('Quantidade inicial', fmt(t.qtd_inicial_total, 0), '', '', planKpiExplanation('qtd_inicial', t, rows)),
             kpi('Saldo final', fmt(t.saldo_final_total, 0), '', '', planKpiExplanation('saldo_final', t, rows)),

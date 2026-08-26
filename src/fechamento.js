@@ -105,6 +105,13 @@ function sumEvents(events) {
     }), { quantity: 0, biomass: 0, dates: [] });
 }
 
+function closureStatus({ unresolvedQuantity, openQuantity, hasOpenCycle, soldQuantity }) {
+    if (unresolvedQuantity > EPSILON) return 'Aguardando destino';
+    if (openQuantity > EPSILON || hasOpenCycle) return 'Em produção';
+    if (soldQuantity <= EPSILON) return 'Encerrado sem despesca rastreada';
+    return 'Encerrado comercialmente';
+}
+
 function aggregatePlan(rows) {
     const totals = {
         tanques: rows.length,
@@ -181,6 +188,22 @@ function aggregatePlan(rows) {
     if (totals.quebra_pct !== null) totals.quebra_pct *= 100;
     totals.custo_total = totals.custo_racao_total + totals.custo_peixe_total + totals.custo_indireto_total;
     totals.custo_por_kg = safeDivide(totals.custo_total, totals.bio_final_total);
+    totals.qtd_em_aberto_estimada = rows.reduce(
+        (sum, row) => sum + row.qtd_em_aberto_estimada,
+        0,
+    );
+    totals.tanques_em_producao = rows.filter(row => row.situacao_fechamento === 'Em produção').length;
+    totals.tanques_aguardando_destino = rows.filter(row => row.situacao_fechamento === 'Aguardando destino').length;
+    totals.tanques_sem_despesca_rastreada = rows
+        .filter(row => row.situacao_fechamento === 'Encerrado sem despesca rastreada').length;
+    totals.tanques_encerrados_comercialmente = rows
+        .filter(row => row.situacao_fechamento === 'Encerrado comercialmente').length;
+    totals.situacao_fechamento = closureStatus({
+        unresolvedQuantity: rows.reduce((sum, row) => sum + row.qtd_transferencia_sem_destino, 0),
+        openQuantity: totals.qtd_em_aberto_estimada,
+        hasOpenCycle: totals.tanques_em_producao > 0,
+        soldQuantity: rows.reduce((sum, row) => sum + row.qtd_vendida_rastreada, 0),
+    });
     return totals;
 }
 
@@ -548,6 +571,14 @@ export function buildFechamento({ lote, roots, cycles, edges, events }) {
                 const sourceShare = compositionMemo.get(edge.sourceId)?.get(root.id) || 0;
                 return sum + edge.quantity * sourceShare;
             }, 0);
+            const openQuantity = Math.max(0, root.initialQty - traced.terminalQuantity);
+            const hasOpenCycle = allocatedCycles.some(item => item.cycle.status !== 'Encerrado');
+            const fechamentoSituation = closureStatus({
+                unresolvedQuantity,
+                openQuantity,
+                hasOpenCycle,
+                soldQuantity: attributedSales.quantity,
+            });
             // PM final rastreado usa a venda real atribuida ao lote: biomassa / quantidade.
             const tracedExitWeightKg = safeDivide(attributedSales.biomass, attributedSales.quantity);
             const tracedEndDate = maxDate(attributedSales.dates) || planEndDate;
@@ -628,6 +659,9 @@ export function buildFechamento({ lote, roots, cycles, edges, events }) {
                 custo_peixe: root.fishCost,
                 custo_indireto_planilha: indirectCostPlan,
                 metodo_planilha: planMethod,
+                situacao_fechamento: fechamentoSituation,
+                qtd_em_aberto_estimada: openQuantity,
+                tem_ciclo_aberto: hasOpenCycle,
                 ciclos_na_linhagem: allocatedCycles.length,
                 profundidade_linhagem: lineageDepth(root.id),
                 destinos: destinations,

@@ -77,6 +77,9 @@ test('interpola a fase classificada pela participação no tanque de destino', (
     assert.equal(row.sobrevivencia_biologica_planilha, 85);
     assert.equal(row.sobrevivencia_fechamento_planilha, 80);
     assert.equal(row.sobrevivencia_planilha, 80);
+    assert.equal(row.situacao_fechamento, 'Encerrado comercialmente');
+    assert.equal(row.qtd_em_aberto_estimada, 0);
+    assert.equal(result.totais_planilha.situacao_fechamento, 'Encerrado comercialmente');
     assert.equal(result.totais_planilha.sobrevivencia_biologica_media, 85);
     assert.equal(result.totais_planilha.sobrevivencia_fechamento_media, 80);
     assert.equal(result.totais_planilha.sobrevivencia_media, 80);
@@ -84,6 +87,22 @@ test('interpola a fase classificada pela participação no tanque de destino', (
     assert.equal(row.componentes_rastreio.length, 2);
     assert.equal(row.componentes_venda.length, 1);
     assert.ok(Math.abs(row.ca_planilha - (600 / 890)) < 1e-9);
+});
+
+test('mantém o lote em produção enquanto houver peixe sem saída terminal', () => {
+    const result = buildFechamento({
+        lote: 'Lote aberto',
+        roots: [{ id: 1 }],
+        cycles: [cycle({ id: 1, status: 'Aberto', finalQty: 1000 })],
+        edges: [],
+        events: [],
+    });
+
+    const row = result.porTanque[0];
+    assert.equal(row.situacao_fechamento, 'Em produção');
+    assert.equal(row.qtd_em_aberto_estimada, 1000);
+    assert.equal(result.totais_planilha.situacao_fechamento, 'Em produção');
+    assert.equal(result.totais_planilha.tanques_em_producao, 1);
 });
 
 test('pondera o peso final pela quantidade da origem enviada a cada destino', () => {

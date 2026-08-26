@@ -5,11 +5,12 @@ import { asNumber, buildFechamento, parseDate } from './fechamento.js';
 const ORIGINS_CACHE_TTL_MS = 60 * 60 * 1000;
 const FECHAMENTO_CACHE_TTL_MS = 15 * 60 * 1000;
 const CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const CACHE_VERSION = 2;
 const CACHE_FILE = process.env.IEFISH_CACHE_FILE
     || path.resolve(process.cwd(), 'data', 'iefish-api-cache.json');
 const cache = new Map();
 let originCache = null;
-let persistentCache = { origins: null, fechamentos: {} };
+let persistentCache = { version: CACHE_VERSION, origins: null, fechamentos: {} };
 let persistentCacheLoaded = false;
 let cacheWrite = Promise.resolve();
 
@@ -24,10 +25,13 @@ async function loadPersistentCache() {
     try {
         const contents = await fs.readFile(CACHE_FILE, 'utf8');
         const parsed = JSON.parse(contents);
-        persistentCache = {
-            origins: parsed?.origins || null,
-            fechamentos: parsed?.fechamentos || {},
-        };
+        if (parsed?.version === CACHE_VERSION) {
+            persistentCache = {
+                version: CACHE_VERSION,
+                origins: parsed.origins || null,
+                fechamentos: parsed.fechamentos || {},
+            };
+        }
     } catch (err) {
         if (err.code !== 'ENOENT') console.warn('Não foi possível ler o cache local do IEFish:', err.message);
     }

@@ -4,6 +4,7 @@ const TABLE_COLUMNS = [
     { key: 'tanque', label: 'Tanque', width: 16 },
     { key: 'fornecedor', label: 'Fornecedor', width: 32 },
     { key: 'metodo_planilha', label: 'Método', width: 28 },
+    { key: 'situacao_fechamento', label: 'Situação', width: 31 },
     { key: 'data_entrada', label: 'Entrada', width: 14, type: 'date' },
     { key: 'data_encerramento_planilha', label: 'Encerramento', width: 16, type: 'date' },
     { key: 'dias_planilha', label: 'Dias', width: 10, type: 'integer' },
@@ -25,6 +26,8 @@ const TABLE_COLUMNS = [
 ];
 
 const KPI_DEFINITIONS = [
+    ['Situação do lote', totals => totals.situacao_fechamento, 'text'],
+    ['Peixes em aberto', totals => totals.qtd_em_aberto_estimada, 'integer'],
     ['Tanques de origem', totals => totals.tanques, 'integer'],
     ['Quantidade inicial', totals => totals.qtd_inicial_total, 'integer'],
     ['Saldo fase inicial', totals => totals.saldo_final_total, 'integer'],
