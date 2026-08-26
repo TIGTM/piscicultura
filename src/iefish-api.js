@@ -1,6 +1,6 @@
 const DEFAULT_BASE_URL = 'https://auth.iefishapp.com.br';
-const REQUEST_INTERVAL_MS = 500;
-const MAX_RATE_LIMIT_RETRIES = 4;
+const REQUEST_INTERVAL_MS = 1_000;
+const MAX_RATE_LIMIT_RETRIES = 5;
 
 function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -22,6 +22,12 @@ function parseTokenExpiry(token) {
 
 function isoToday() {
     return new Date().toISOString().slice(0, 10);
+}
+
+function isTemporaryResponse(response, text) {
+    return response.status === 429
+        || response.status >= 500
+        || /rate\s*(?:limit|exceeded)|too many requests|limite de requisi|temporar|gateway|service unavailable/i.test(text);
 }
 
 export class IefishApi {
@@ -50,8 +56,8 @@ export class IefishApi {
 
             const response = await this.fetchImpl(url, options);
             const text = await response.text();
-            const rateLimited = response.status === 429 || /rate exceeded/i.test(text);
-            if (rateLimited && attempt < MAX_RATE_LIMIT_RETRIES) {
+            const temporary = isTemporaryResponse(response, text);
+            if (temporary && attempt < MAX_RATE_LIMIT_RETRIES) {
                 await sleep(1000 * (attempt + 1));
                 continue;
             }
@@ -60,8 +66,10 @@ export class IefishApi {
             try {
                 payload = text ? JSON.parse(text) : {};
             } catch {
-                throw new Error(rateLimited
+                throw new Error(response.status === 429 || /rate|limit|too many/i.test(text)
                     ? 'A API IEFish atingiu o limite de consultas. Tente novamente em alguns segundos.'
+                    : temporary
+                        ? 'A API IEFish está temporariamente indisponível. Tente novamente em alguns segundos.'
                     : 'A API IEFish retornou uma resposta inválida. Tente novamente.');
             }
             if (!response.ok || payload?.error) {
