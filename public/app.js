@@ -589,7 +589,9 @@ async function gerarFechamento({ refresh = false } = {}) {
         fechamentoData = json;
         updateStatus(true);
         renderFechamento();
-        fechamentoStatus.textContent = `${json.lote} · ${json.diagnostico.ciclos} ciclos`;
+        fechamentoStatus.textContent = json.diagnostico.cache?.stale
+            ? `${json.lote} · exibindo último fechamento salvo`
+            : `${json.lote} · ${json.diagnostico.ciclos} ciclos`;
     } catch (err) {
         updateStatus(false);
         fechamentoWrapper.innerHTML = `<div class="welcome-message"><h3 class="text-error">Erro</h3><p>${escapeHtml(err.message)}</p></div>`;
@@ -1597,6 +1599,7 @@ function renderDiagnostics() {
         <strong>${fmt(pct, 0)}% das transferências resolvidas</strong>
         <span>${fmt(d.transferencias_resolvidas, 0)} de ${fmt(d.transferencias, 0)}</span>
         ${d.fonte ? `<span>${escapeHtml(d.fonte)}</span>` : ''}
+        ${d.cache?.stale ? `<span>Último fechamento salvo: ${escapeHtml(fmtDate(d.cache.savedAt))}</span>` : ''}
         ${d.transferencias_sem_destino ? `<span>${fmt(d.transferencias_sem_destino, 0)} sem destino</span>` : ''}
         ${d.pm_ponderado_cobertura_baixa ? `<span>${fmt(d.pm_ponderado_cobertura_baixa, 0)} PMs com base parcial</span>` : ''}
     `;

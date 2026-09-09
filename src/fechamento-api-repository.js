@@ -5,7 +5,7 @@ import { asNumber, buildFechamento, parseDate } from './fechamento.js';
 const ORIGINS_CACHE_TTL_MS = 60 * 60 * 1000;
 const FECHAMENTO_CACHE_TTL_MS = 15 * 60 * 1000;
 const OUTPUT_TYPES_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
-const CACHE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const CACHE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 const CACHE_VERSION = 2;
 const CACHE_FILE = process.env.IEFISH_CACHE_FILE
     || path.resolve(process.cwd(), 'data', 'iefish-api-cache.json');
@@ -18,6 +18,20 @@ let cacheWrite = Promise.resolve();
 
 function isCacheFresh(entry, ttl) {
     return entry && Date.now() - entry.createdAt < ttl;
+}
+
+function staleCacheValue(entry, reason) {
+    return {
+        ...entry.value,
+        diagnostico: {
+            ...entry.value.diagnostico,
+            cache: {
+                stale: true,
+                savedAt: new Date(entry.createdAt).toISOString(),
+                reason,
+            },
+        },
+    };
 }
 
 async function loadPersistentCache() {
@@ -132,11 +146,22 @@ async function getOrigins(api, { refresh = false } = {}) {
         return originCache.rows;
     }
 
-    const rows = await api.searchOrigins();
-    originCache = { createdAt: Date.now(), rows };
-    persistentCache.origins = originCache;
-    await persistCache();
-    return rows;
+    try {
+        const rows = await api.searchOrigins();
+        originCache = { createdAt: Date.now(), rows };
+        persistentCache.origins = originCache;
+        await persistCache();
+        return rows;
+    } catch (err) {
+        // A lista de origens muda pouco. Quando a API limita consultas, mantemos
+        // a seleção disponível com a última lista salva em vez de quebrar a tela.
+        if (persistentCache.origins?.rows?.length) {
+            console.warn('API IEFish indisponível; usando lista de origens salva:', err.message);
+            originCache = persistentCache.origins;
+            return originCache.rows;
+        }
+        throw err;
+    }
 }
 
 async function getOutputTypes(api) {
@@ -145,13 +170,21 @@ async function getOutputTypes(api) {
         return new Map(persistentCache.outputTypes.rows);
     }
 
-    const outputTypes = await api.outputTypes();
-    persistentCache.outputTypes = {
-        createdAt: Date.now(),
-        rows: [...outputTypes.entries()],
-    };
-    await persistCache();
-    return outputTypes;
+    try {
+        const outputTypes = await api.outputTypes();
+        persistentCache.outputTypes = {
+            createdAt: Date.now(),
+            rows: [...outputTypes.entries()],
+        };
+        await persistCache();
+        return outputTypes;
+    } catch (err) {
+        if (persistentCache.outputTypes?.rows?.length) {
+            console.warn('API IEFish indisponível; usando tipos de saída salvos:', err.message);
+            return new Map(persistentCache.outputTypes.rows);
+        }
+        throw err;
+    }
 }
 
 export function buildApiFechamento({ lote, origins, cards, details, outputs, outputTypes }) {
@@ -240,11 +273,21 @@ export async function getFechamentoFromApi(api, lote, { refresh = false } = {}) 
         return persisted.value;
     }
 
+    // Mesmo um fechamento mais antigo ainda é melhor do que uma tela vazia
+    // quando o IEFish responde com limite de consultas. O aviso vai até a UI.
+    const staleCache = cached?.value ? cached : persisted?.value ? persisted : null;
+
     // Um clique repetido, a exportação ou outra aba não devem disparar a mesma
     // árvore de rastreabilidade enquanto o fechamento do lote já está sendo buscado.
     if (pendingFechamentos.has(lote)) return pendingFechamentos.get(lote);
 
-    const pending = buildAndCacheFechamento(api, lote, { refresh });
+    const pending = buildAndCacheFechamento(api, lote, { refresh }).catch(err => {
+        if (staleCache) {
+            console.warn(`API IEFish indisponível; usando fechamento salvo de ${lote}:`, err.message);
+            return staleCacheValue(staleCache, err.message);
+        }
+        throw err;
+    });
     pendingFechamentos.set(lote, pending);
     try {
         return await pending;
