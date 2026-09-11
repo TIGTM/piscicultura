@@ -34,6 +34,7 @@
                     </div>
                     <button id="logout-btn" class="logout-btn" type="button">Sair</button>
                 </div>
+                <button id="manage-users-btn" class="manage-users-btn" type="button" hidden>Usuários</button>
                 <div class="status-indicator">
                     <span class="dot"></span>
                     <span id="connection-status">Verificando...</span>
@@ -165,6 +166,24 @@
 
     <div id="toast" class="toast"></div>
     <div id="calculation-tooltip" class="calculation-tooltip" role="tooltip" hidden></div>
+    <div id="users-dialog" class="users-dialog" role="dialog" aria-modal="true" aria-labelledby="users-dialog-title" hidden>
+        <div class="users-dialog-backdrop" data-close-users-dialog></div>
+        <section class="users-dialog-card">
+            <header class="users-dialog-header">
+                <div>
+                    <h2 id="users-dialog-title">Usuários</h2>
+                    <p>Novos usuários deverão trocar a senha no primeiro acesso.</p>
+                </div>
+                <button id="close-users-dialog" class="icon-close-btn" type="button" aria-label="Fechar">×</button>
+            </header>
+            <form id="create-user-form" class="create-user-form">
+                <label>Nome de usuário<input id="new-user-name" name="username" autocomplete="username" required maxlength="60"></label>
+                <label>Senha inicial<input id="new-user-password" name="password" type="password" autocomplete="new-password" required minlength="6"></label>
+                <button id="create-user-btn" class="btn-primary" type="submit">Adicionar usuário</button>
+            </form>
+            <div id="users-list" class="users-list"></div>
+        </section>
+    </div>
 
     <script src="app.js"></script>
 </body>

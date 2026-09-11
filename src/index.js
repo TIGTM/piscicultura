@@ -22,7 +22,7 @@ const auth = createAuth({
     users: [
         { username: 'Pedro', password: '123456', mustChange: true },
         { username: 'Matheus', password: '123456', mustChange: true },
-        { username: 'Silas', password: '123456', mustChange: true },
+        { username: 'Silas', password: '123456', mustChange: true, role: 'admin' },
     ],
     userStorePath: process.env.AUTH_USERS_FILE || path.resolve(process.cwd(), 'data', 'auth-users.json'),
     sessionTtlMs: sessionHours * 60 * 60 * 1000,
@@ -52,6 +52,8 @@ app.get('/change-password', auth.requireAuth, (req, res) => {
 app.post('/api/auth/change-password', auth.changePassword);
 
 app.use(auth.requireAuth);
+app.get('/api/admin/users', auth.requireAdmin, auth.listUsers);
+app.post('/api/admin/users', auth.requireAdmin, auth.createUser);
 app.use(express.static(publicDir));
 
 const VIEWS = {

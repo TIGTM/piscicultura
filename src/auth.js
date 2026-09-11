@@ -68,7 +68,10 @@ export function createAuth({
                 username: String(configuredUser.username).trim(),
                 passwordHash: credentialHash(configuredUser.password).toString('hex'),
                 mustChange: configuredUser.mustChange ?? true,
+                role: configuredUser.role || 'user',
             });
+        } else if (configuredUser.role) {
+            userStore.get(key).role = configuredUser.role;
         }
     }
 
@@ -151,12 +154,18 @@ export function createAuth({
         const session = {
             username: user.username,
             mustChange: user.mustChange,
+            isAdmin: user.role === 'admin',
             createdAt: Date.now(),
             expiresAt: Date.now() + sessionTtlMs,
         };
         sessions.set(token, session);
         res.cookie(SESSION_COOKIE, token, cookieOptions(req));
-        return res.json({ authenticated: true, username: session.username, mustChange: session.mustChange });
+        return res.json({
+            authenticated: true,
+            username: session.username,
+            mustChange: session.mustChange,
+            isAdmin: session.isAdmin,
+        });
     }
 
     function changePassword(req, res) {
@@ -201,8 +210,52 @@ export function createAuth({
             authenticated: true,
             username: current.session.username,
             mustChange: current.session.mustChange,
+            isAdmin: current.session.isAdmin,
             expiresAt: new Date(current.session.expiresAt).toISOString(),
         });
+    }
+
+    function requireAdmin(req, res, next) {
+        if (!req.auth?.isAdmin) return res.status(403).json({ error: 'Acesso restrito ao administrador.' });
+        return next();
+    }
+
+    function listUsers(_req, res) {
+        res.set('Cache-Control', 'no-store');
+        const users = [...userStore.values()]
+            .map(user => ({
+                username: user.username,
+                isAdmin: user.role === 'admin',
+                mustChange: Boolean(user.mustChange),
+            }))
+            .sort((left, right) => left.username.localeCompare(right.username, 'pt-BR'));
+        return res.json({ users });
+    }
+
+    function createUser(req, res) {
+        res.set('Cache-Control', 'no-store');
+        const username = String(req.body?.username || '').trim();
+        const password = String(req.body?.password || '');
+        const key = username.toLowerCase();
+
+        if (!/^[\p{L}\p{N} ._-]{2,60}$/u.test(username)) {
+            return res.status(400).json({ error: 'Informe um nome de usuário entre 2 e 60 caracteres.' });
+        }
+        if (password.length < 6) {
+            return res.status(400).json({ error: 'A senha inicial deve ter pelo menos 6 caracteres.' });
+        }
+        if (userStore.has(key)) {
+            return res.status(409).json({ error: 'Já existe um usuário com esse nome.' });
+        }
+
+        userStore.set(key, {
+            username,
+            passwordHash: credentialHash(password).toString('hex'),
+            mustChange: true,
+            role: 'user',
+        });
+        persistUsers();
+        return res.status(201).json({ username, mustChange: true, isAdmin: false });
     }
 
     function requireAuth(req, res, next) {
@@ -252,6 +305,9 @@ export function createAuth({
         changePassword,
         logout,
         session,
+        requireAdmin,
+        listUsers,
+        createUser,
         requireAuth,
         redirectAuthenticated,
         dispose,

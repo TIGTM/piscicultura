@@ -22,6 +22,12 @@ const filtersContainer = document.getElementById('filters-container');
 const rowCount = document.getElementById('row-count');
 const sessionUsername = document.getElementById('session-username');
 const logoutBtn = document.getElementById('logout-btn');
+const manageUsersBtn = document.getElementById('manage-users-btn');
+const usersDialog = document.getElementById('users-dialog');
+const closeUsersDialogBtn = document.getElementById('close-users-dialog');
+const createUserForm = document.getElementById('create-user-form');
+const createUserBtn = document.getElementById('create-user-btn');
+const usersList = document.getElementById('users-list');
 
 async function apiFetch(input, options) {
     const response = await fetch(input, options);
@@ -38,6 +44,7 @@ async function init() {
         const sessionResponse = await apiFetch('/api/auth/session');
         const session = await sessionResponse.json();
         sessionUsername.textContent = session.username;
+        manageUsersBtn.hidden = !session.isAdmin;
 
         /* Views e SQL ficam desativados nesta publicacao de fechamento.
         const res = await apiFetch('/api/views');
@@ -51,6 +58,37 @@ async function init() {
         showToast('Sistema carregado com sucesso');
     } catch (err) {
         showToast(err.message, 'error');
+    }
+}
+
+function closeUsersDialog() {
+    usersDialog.hidden = true;
+}
+
+async function loadUsers() {
+    usersList.innerHTML = '<div class="users-loading">Carregando usuários...</div>';
+    const response = await apiFetch('/api/admin/users');
+    if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Não foi possível carregar os usuários.');
+    }
+    const { users } = await response.json();
+    usersList.innerHTML = users.map(user => `
+        <div class="user-list-item">
+            <strong>${escapeHtml(user.username)}</strong>
+            <span>${user.isAdmin ? 'Administrador' : user.mustChange ? 'Aguardando troca de senha' : 'Ativo'}</span>
+        </div>
+    `).join('');
+}
+
+async function openUsersDialog() {
+    usersDialog.hidden = false;
+    try {
+        await loadUsers();
+        document.getElementById('new-user-name').focus();
+    } catch (error) {
+        closeUsersDialog();
+        showToast(error.message, 'error');
     }
 }
 
@@ -1787,5 +1825,38 @@ logoutBtn.onclick = async () => {
         showToast(error.message, 'error');
     }
 };
+
+manageUsersBtn.onclick = openUsersDialog;
+closeUsersDialogBtn.onclick = closeUsersDialog;
+usersDialog.addEventListener('click', event => {
+    if (event.target.matches('[data-close-users-dialog]')) closeUsersDialog();
+});
+createUserForm.addEventListener('submit', async event => {
+    event.preventDefault();
+    const formData = new FormData(createUserForm);
+    createUserBtn.disabled = true;
+    const previousLabel = createUserBtn.textContent;
+    createUserBtn.textContent = 'Adicionando...';
+    try {
+        const response = await apiFetch('/api/admin/users', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                username: formData.get('username'),
+                password: formData.get('password'),
+            }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || 'Não foi possível adicionar o usuário.');
+        createUserForm.reset();
+        await loadUsers();
+        showToast(`Usuário ${data.username} adicionado.`);
+    } catch (error) {
+        showToast(error.message, 'error');
+    } finally {
+        createUserBtn.disabled = false;
+        createUserBtn.textContent = previousLabel;
+    }
+});
 
 init();
