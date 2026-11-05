@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs';
+import { calcularKpisGerais } from '../public/kpis-gerais.js';
 
 const TABLE_COLUMNS = [
     { key: 'tanque', label: 'Tanque', width: 16 },
@@ -28,9 +29,11 @@ const TABLE_COLUMNS = [
 
 const KPI_DEFINITIONS = [
     ['Quantidade inicial', totals => totals.qtd_inicial_total, 'integer'],
-    ['Mortalidade total', totals => totals.mortalidade_total, 'integer'],
-    ['Correção de saldo', totals => totals.correcao_total, 'integer'],
-    ['Quebra', totals => totals.quebra_pct, 'percent'],
+    ['Mortalidade apurada', totals => totals.mortalidade_apurada_kpi, 'integer'],
+    ['Mortalidade não apurada', totals => totals.mortalidade_nao_apurada_kpi, 'integer'],
+    ['Mortalidade total', totals => totals.mortalidade_total_kpi, 'integer'],
+    ['Quantidade final (estimada)', totals => totals.qtd_final_kpi, 'integer'],
+    ['Quebra', totals => totals.quebra_kpi, 'percent'],
     ['Peixes em produção', totals => totals.qtd_em_aberto_estimada, 'integer'],
     ['Situação do lote', totals => totals.situacao_fechamento, 'text'],
     ['Tanques de origem', totals => totals.tanques, 'integer'],
@@ -41,7 +44,7 @@ const KPI_DEFINITIONS = [
     ['Peso médio final (g)', totals => totals.pm_saida_medio_g, 'decimal'],
     ['GPD médio (g/dia)', totals => totals.gpd_medio, 'decimal'],
     ['Sobrevivência biológica', totals => totals.sobrevivencia_biologica_media, 'percent'],
-    ['Sobrevivência de fechamento', totals => totals.sobrevivencia_fechamento_media, 'percent'],
+    ['Sobrevivência de fechamento', totals => totals.sobrevivencia_fechamento_kpi, 'percent'],
 ];
 
 function numberFormat(type) {
@@ -98,7 +101,7 @@ export async function createFechamentoWorkbook(fechamento) {
     sheet.getCell('A4').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F6F78' } };
     sheet.mergeCells('A4:D4');
 
-    const totals = fechamento.totais_planilha;
+    const totals = calcularKpisGerais(fechamento.totais_planilha);
     for (let index = 0; index < KPI_DEFINITIONS.length; index += 2) {
         const row = 5 + Math.floor(index / 2);
         for (const [offset, column] of [[0, 'A'], [1, 'C']]) {
