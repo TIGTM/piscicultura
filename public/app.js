@@ -656,11 +656,11 @@ const PLAN_COLS = [
     { key: 'bio_final_planilha', label: 'Bio. final (kg)' },
     { key: 'ganho_biomassa_planilha', label: 'Ganho bio (kg)' },
     { key: 'racao_planilha', label: 'Ração (kg)' },
-    { key: 'ca_planilha', label: 'C.A.' },
+    { key: 'ca_planilha', label: 'TCA' },
     { key: 'pm_entrada_g', label: 'PM entrada (g)' },
     { key: 'pm_saida_planilha_g', label: 'PM final pond. (g)', type: 'weighted-pm' },
     { key: 'gpd_planilha', label: 'GPD (g/dia)' },
-    { key: 'sobrevivencia_biologica_planilha', label: 'Sobrev. biológica (%)' },
+    { key: 'sobrevivencia_biologica_planilha', label: 'Sobrev. apurada (%)' },
     { key: 'sobrevivencia_fechamento_planilha', label: 'Sobrev. fechamento (%)' },
     { key: 'mortalidade_total_planilha', label: 'Mortalidade total', type: 'loss-total' },
     { key: 'correcao_total_planilha', label: 'Correção total', type: 'loss-total' },
@@ -677,7 +677,7 @@ const TRACE_COLS = [
     { key: 'qtd_vendida_rastreada', label: 'Qtd. vendida', decimals: 0 },
     { key: 'bio_vendida_rastreada', label: 'Bio. vendida (kg)' },
     { key: 'racao_rastreada', label: 'Ração rateada (kg)' },
-    { key: 'ca_rastreada', label: 'C.A. rastreada' },
+    { key: 'ca_rastreada', label: 'TCA rastreada' },
     { key: 'pm_saida_rastreado_g', label: 'PM venda (g)' },
     { key: 'gpd_rastreado', label: 'GPD (g/dia)' },
     { key: 'sobrevivencia_comercial', label: 'Sobrev. comercial (%)' },
@@ -956,13 +956,13 @@ function planCellExplanation(row, column) {
             note: 'A participação é calculada pela quantidade da origem que entrou no destino. É um rateio proporcional da ração, não uma média de pesos.',
         },
         ca_planilha: {
-            title: `C.A. de ${row.tanque}`,
+            title: `TCA de ${row.tanque}`,
             source: usesWeightedFinalPm(row)
                 ? 'Ração atribuída + biomassa final reconstruída com média ponderada'
                 : 'Ração atribuída + ganho de biomassa calculado',
             formula: usesWeightedFinalPm(row)
-                ? '1) PM ponderado = Σ(PM do destino × peixes da origem) ÷ Σ peixes. 2) Biomassa final = saldo final × PM ponderado ÷ 1.000. 3) C.A. = ração ÷ (biomassa final − biomassa inicial).'
-                : 'C.A. = ração consumida ÷ (biomassa final − biomassa inicial).',
+                ? '1) PM ponderado = Σ(PM do destino × peixes da origem) ÷ Σ peixes. 2) Biomassa final = saldo final × PM ponderado ÷ 1.000. 3) TCA = ração ÷ (biomassa final − biomassa inicial).'
+                : 'TCA = ração consumida ÷ (biomassa final − biomassa inicial).',
             values: [
                 ...weightedPmValues(row),
                 [usesWeightedFinalPm(row) ? 'PM final ponderado' : 'PM final', `${fmt(row.pm_saida_planilha_g)} g`],
@@ -973,7 +973,7 @@ function planCellExplanation(row, column) {
                 ['Resultado', fmt(row.ca_planilha)],
             ],
             components: pmComponents(row),
-            note: `${weightedPmNote(row)} A C.A. em si não é uma média: ela divide a ração pelo ganho de biomassa.`,
+            note: `${weightedPmNote(row)} A TCA em si não é uma média: ela divide a ração pelo ganho de biomassa.`,
         },
         pm_entrada_g: {
             title: `PM de entrada de ${row.tanque}`,
@@ -1017,9 +1017,9 @@ function planCellExplanation(row, column) {
             note: weightedPmNote(row),
         },
         sobrevivencia_biologica_planilha: {
-            title: `Sobrevivência biológica de ${row.tanque}`,
+            title: `Sobrevivência apurada de ${row.tanque}`,
             source: 'Mortes proporcionais de toda a linhagem',
-            formula: 'Sobrevivência biológica = (inicial − mortalidade total) ÷ inicial × 100.',
+            formula: 'Sobrevivência apurada = (inicial − mortalidade total) ÷ inicial × 100.',
             values: [
                 ['Quantidade inicial', fmt(row.qtd_inicial, 0)],
                 ['Mortalidade total', fmt(row.mortalidade_total_planilha, 0)],
@@ -1138,9 +1138,9 @@ function traceCellExplanation(row, column) {
             components: feedComponents(row, true),
         },
         ca_rastreada: {
-            title: `C.A. rastreada de ${row.tanque}`,
+            title: `TCA rastreada de ${row.tanque}`,
             source,
-            formula: 'C.A. rastreada = ração rastreada ÷ (biomassa vendida atribuída − biomassa inicial).',
+            formula: 'TCA rastreada = ração rastreada ÷ (biomassa vendida atribuída − biomassa inicial).',
             values: [
                 ['Ração rastreada', `${fmt(row.racao_rastreada)} kg`],
                 ['Biomassa vendida', `${fmt(row.bio_vendida_rastreada)} kg`],
@@ -1447,9 +1447,9 @@ function planKpiExplanation(key, totals, rows) {
             components: tankTotalComponents(rows, 'racao_planilha', ' kg'),
         },
         ca: {
-            title: 'C.A. consolidada do lote',
+            title: 'TCA consolidada do lote',
             source,
-            formula: '1) Reconstrói as biomassas finais usando os PMs ponderados. 2) Ganho total = biomassa final total − biomassa inicial total. 3) C.A. = ração total ÷ ganho total.',
+            formula: '1) Reconstrói as biomassas finais usando os PMs ponderados. 2) Ganho total = biomassa final total − biomassa inicial total. 3) TCA = ração total ÷ ganho total.',
             values: [
                 ['Tanques com PM ponderado', `${fmt(weightedTankCount, 0)} de ${fmt(rows.length, 0)}`],
                 ['Ração total', `${fmt(totals.racao_total)} kg`],
@@ -1459,7 +1459,7 @@ function planKpiExplanation(key, totals, rows) {
                 ['Resultado', fmt(totals.ca_real)],
             ],
             components: finalBiomassComponents(rows),
-            note: 'A C.A. consolidada não é a média dos C.As dos tanques. Ela divide toda a ração por todo o ganho de biomassa; a média ponderada entra antes, na construção das biomassas finais.',
+            note: 'A TCA consolidada não é a média dos TCAs dos tanques. Ela divide toda a ração por todo o ganho de biomassa; a média ponderada entra antes, na construção das biomassas finais.',
         },
         pm_final: {
             title: 'Peso médio final consolidado',
@@ -1483,9 +1483,9 @@ function planKpiExplanation(key, totals, rows) {
             note: 'O PM final usado dentro de cada GPD é ponderado pelas quantidades dos destinos. Depois disso, este KPI faz a média simples dos GPDs válidos dos tanques.',
         },
         sobrevivencia_biologica: {
-            title: 'Sobrevivência biológica do lote',
+            title: 'Sobrevivência apurada do lote',
             source,
-            formula: 'Sobrevivência biológica = (inicial − mortalidade apurada) ÷ inicial × 100.',
+            formula: 'Sobrevivência apurada = (inicial − mortalidade apurada) ÷ inicial × 100.',
             values: [
                 ['Quantidade inicial', fmt(totals.qtd_inicial_total, 0)],
                 ['Mortalidade apurada', fmt(totals.mortalidade_total, 0)],
@@ -1555,9 +1555,9 @@ function traceKpiExplanation(key, totals, rows) {
             components: tankTotalComponents(rows, 'racao_rastreada', ' kg'),
         },
         ca: {
-            title: 'C.A. rastreada do lote',
+            title: 'TCA rastreada do lote',
             source,
-            formula: 'C.A. = ração rastreada total ÷ (biomassa vendida total − biomassa inicial total).',
+            formula: 'TCA = ração rastreada total ÷ (biomassa vendida total − biomassa inicial total).',
             values: [
                 ['Ração', `${fmt(totals.racao_total)} kg`],
                 ['Biomassa vendida', `${fmt(totals.bio_vendida_total)} kg`],
@@ -1654,10 +1654,10 @@ function renderKpis() {
             kpi('Dias médios', fmt(t.dias_medio, 0), '', '', planKpiExplanation('dias', t, rows)),
             kpi('Biomassa final', `${fmt(t.bio_final_total)} kg`, '', '', planKpiExplanation('bio_final', t, rows)),
             kpi('Ração total', `${fmt(t.racao_total)} kg`, '', '', planKpiExplanation('racao', t, rows)),
-            kpi('C.A. do lote', fmt(t.ca_real), '', t.ca_real > 2 ? 'tone-warning' : 'tone-success', planKpiExplanation('ca', t, rows)),
+            kpi('TCA do lote', fmt(t.ca_real), '', t.ca_real > 2 ? 'tone-warning' : 'tone-success', planKpiExplanation('ca', t, rows)),
             kpi('Peso médio final', `${fmt(t.pm_saida_medio_g)} g`, '', '', planKpiExplanation('pm_final', t, rows)),
             kpi('GPD médio', `${fmt(t.gpd_medio)} g/dia`, '', '', planKpiExplanation('gpd', t, rows)),
-            kpi('Sobrevivência biológica', `${fmt(t.sobrevivencia_biologica_media)}%`, '', 'tone-success', planKpiExplanation('sobrevivencia_biologica', t, rows)),
+            kpi('Sobrevivência apurada', `${fmt(t.sobrevivencia_biologica_media)}%`, '', 'tone-success', planKpiExplanation('sobrevivencia_biologica', t, rows)),
             kpi('Sobrevivência de fechamento', `${fmt(t.sobrevivencia_fechamento_kpi)}%`, '', 'tone-success', planKpiExplanation('sobrevivencia_fechamento_geral', t, rows)),
         ]
         : [
@@ -1665,7 +1665,7 @@ function renderKpis() {
             kpi('Quantidade vendida', fmt(t.qtd_vendida_total, 0), '', '', traceKpiExplanation('qtd_vendida', t, rows)),
             kpi('Biomassa vendida', `${fmt(t.bio_vendida_total)} kg`, '', '', traceKpiExplanation('bio_vendida', t, rows)),
             kpi('Ração rateada', `${fmt(t.racao_total)} kg`, '', '', traceKpiExplanation('racao', t, rows)),
-            kpi('C.A. rastreada', fmt(t.ca_real), '', t.ca_real > 2 ? 'tone-warning' : 'tone-success', traceKpiExplanation('ca', t, rows)),
+            kpi('TCA rastreada', fmt(t.ca_real), '', t.ca_real > 2 ? 'tone-warning' : 'tone-success', traceKpiExplanation('ca', t, rows)),
             kpi('Peso médio de venda', `${fmt(t.pm_saida_medio_g)} g`, '', '', traceKpiExplanation('pm', t, rows)),
             kpi('Sobrevivência comercial', `${fmt(t.sobrevivencia_comercial)}%`, '', 'tone-success', traceKpiExplanation('sobrevivencia', t, rows)),
             kpi('Cobertura do rastreio', `${fmt(t.cobertura_rastreio)}%`, '', t.cobertura_rastreio < 90 ? 'tone-warning' : '', traceKpiExplanation('cobertura', t, rows)),
@@ -1720,10 +1720,10 @@ function supplierCellExplanation(row, key, supplierRows) {
     const labels = {
         tanques: 'Tanques',
         povoado: 'Quantidade inicial',
-        ca: 'C.A.',
+        ca: 'TCA',
         pm_final: 'Peso médio final',
         gpd: 'GPD médio',
-        sobrevivencia_biologica: 'Sobrevivência biológica',
+        sobrevivencia_biologica: 'Sobrevivência apurada',
         sobrevivencia_fechamento: 'Sobrevivência de fechamento',
         quebra: 'Quebra',
     };
@@ -1738,7 +1738,7 @@ function supplierCellExplanation(row, key, supplierRows) {
 function renderSuppliers() {
     const rows = fechamentoData.fornecedores || [];
     if (!rows.length) { fechamentoSuppliersSection.hidden = true; return; }
-    let html = '<table><thead><tr><th>Fornecedor</th><th>Tanques</th><th>Povoado</th><th>C.A.</th><th>PM final</th><th>GPD</th><th>Sobrev. biológica</th><th>Sobrev. fechamento</th><th>Quebra</th></tr></thead><tbody>';
+    let html = '<table><thead><tr><th>Fornecedor</th><th>Tanques</th><th>Povoado</th><th>TCA</th><th>PM final</th><th>GPD</th><th>Sobrev. apurada</th><th>Sobrev. fechamento</th><th>Quebra</th></tr></thead><tbody>';
     rows.forEach(row => {
         const supplierRows = (fechamentoData.porTanque || [])
             .filter(item => item.fornecedor === row.fornecedor);
